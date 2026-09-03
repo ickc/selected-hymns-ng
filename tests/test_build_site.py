@@ -3,7 +3,34 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from scripts.build_site import _merge, _partition
+from scripts.build_site import _linux_physical_cores, _merge, _partition
+
+
+CPUINFO = """\
+processor: 0
+physical id: 0
+core id: 0
+
+processor: 1
+physical id: 0
+core id: 0
+
+processor: 2
+physical id: 0
+core id: 1
+
+processor: 3
+physical id: 0
+core id: 1
+"""
+
+
+class CpuCountTest(TestCase):
+    def test_linux_threads_are_counted_as_one_physical_core(self) -> None:
+        self.assertEqual(_linux_physical_cores(CPUINFO), 2)
+
+    def test_linux_count_obeys_the_process_cpu_affinity(self) -> None:
+        self.assertEqual(_linux_physical_cores(CPUINFO, {0, 1}), 1)
 
 
 class PartitionTest(TestCase):

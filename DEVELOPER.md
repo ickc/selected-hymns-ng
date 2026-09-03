@@ -152,17 +152,49 @@ are identical, and merges their per-slide search entries. Worker 1 also builds
 the landing page and developer-only chorus report. Nothing partial replaces
 `site/_site` until every worker and the merge have succeeded.
 
-The build defaults to the machine's CPU count, capped at eight because each
-Quarto process takes a few hundred MB. Set it explicitly when CPU or memory
-calls for a different balance:
+```mermaid
+flowchart LR
+  slides["slide/*.md × 848"] --> split{{"round-robin split"}}
+  index["index.md"] --> w1
+  chorus["chorus.md"] --> w1
+  split --> w1["isolated worker 1"]
+  split --> w2["isolated worker 2"]
+  split --> wn["isolated worker N"]
+  w1 --> o1["deck HTML + search records"]
+  w2 --> o2["deck HTML + search records"]
+  wn --> on["deck HTML + search records"]
+  o1 --> merge{{"verify assets and IDs;\nmerge by document"}}
+  o2 --> merge
+  on --> merge
+  merge --> built["site/_site"]
+```
+
+Search is not rebuilt from plain text by this script. Each worker asks Quarto
+to index the rendered HTML for its own documents, producing the same complete
+records Quarto would produce for those documents in a full render. The merge
+checks their IDs are disjoint, groups the records in deterministic document
+order, and preserves Quarto's slide order inside each hymn. Comparing with a
+native serial render gives the same 6,611 IDs and record contents and the same
+files everywhere else. `search.json` itself is not byte-identical because
+Quarto's full render emits its top-level records in a different order; that
+array order is not part of the search behavior.
+
+The build detects physical rather than logical CPU cores (respecting Linux CPU
+affinity), prints the detected and selected counts, and uses every physical
+core by default. Set it explicitly when CPU or memory calls for a different
+balance:
 
 ```sh
 pixi run build -- -j 4
 ```
 
-A preview is still a normal Quarto process over the source project. Stop
-`pixi run serve` before building so it does not react to `md-to-slide` while a
-build is starting.
+`pixi run build-serial` retains the old one-process build for comparison.
+
+`pixi run serve` first performs the parallel build, then starts `quarto
+preview --render none`. Quarto serves that existing output immediately and
+watches the project; after startup, it renders only the input page that
+changed. A change under `data/` still needs a restart because Quarto watches
+the projected `site/` rather than its source.
 
 ### Fitting
 
@@ -198,6 +230,7 @@ yaml-to-md     Render the canonical YAML collection as data/N.md
 md-to-yaml     Rebuild the canonical YAML from data/N.md
 md-to-slide    Project data/N.md as the slide Markdown and the chorus report
 build          Regenerate the projection and render every deck in parallel
+build-serial   Regenerate the projection and render in one Quarto process
 serve          Preview the site on $QUARTO_PORT (8020)
 check-slides   Measure every rendered deck in a browser; fail on overflow
 chorus-report  List the hymns whose chorus the projection resolves

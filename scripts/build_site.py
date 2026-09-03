@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from typing import Any, Sequence
@@ -47,10 +48,50 @@ def _positive_integer(value: str) -> int:
     return number
 
 
-def _default_jobs() -> int:
-    # A Quarto process uses a few hundred MB. More than eight workers tends to
-    # trade memory pressure for very little additional throughput.
-    return min(os.cpu_count() or 1, 8)
+def _linux_physical_cores(cpuinfo: str, allowed: set[int] | None = None) -> int | None:
+    cores: set[tuple[str, str]] = set()
+    for block in cpuinfo.split("\n\n"):
+        fields = {}
+        for line in block.splitlines():
+            name, separator, value = line.partition(":")
+            if separator:
+                fields[name.strip()] = value.strip()
+        try:
+            processor = int(fields["processor"])
+            core = (fields["physical id"], fields["core id"])
+        except (KeyError, ValueError):
+            continue
+        if allowed is None or processor in allowed:
+            cores.add(core)
+    return len(cores) or None
+
+
+def _physical_cpu_count() -> int:
+    if sys.platform.startswith("linux"):
+        try:
+            allowed = set(os.sched_getaffinity(0))
+        except AttributeError:
+            allowed = None
+        try:
+            count = _linux_physical_cores(
+                Path("/proc/cpuinfo").read_text(encoding="utf-8"), allowed
+            )
+        except OSError:
+            count = None
+        if count is not None:
+            return count
+        if allowed:
+            return len(allowed)
+    elif sys.platform == "darwin":
+        result = subprocess.run(
+            ["sysctl", "-n", "hw.physicalcpu"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip().isdecimal():
+            return int(result.stdout)
+    return os.cpu_count() or 1
 
 
 def _partition(paths: Sequence[Path], jobs: int) -> list[list[Path]]:
@@ -157,6 +198,8 @@ def build(project: Path, jobs: int) -> None:
     started = time.monotonic()
     process_count = len(partitions)
     noun = "process" if process_count == 1 else "processes"
+    physical_cores = _physical_cpu_count()
+    print(f"Detected {physical_cores} physical CPU cores")
     print(f"Rendering {len(slides)} hymn decks with {process_count} Quarto {noun}")
 
     with tempfile.TemporaryDirectory(prefix=".quarto-build-", dir=project.parent) as temporary:
@@ -213,8 +256,8 @@ def main() -> None:
         "-j",
         "--jobs",
         type=_positive_integer,
-        default=_default_jobs(),
-        help="parallel Quarto processes (default: up to 8, based on CPU count)",
+        default=_physical_cpu_count(),
+        help="parallel Quarto processes (default: all physical CPU cores)",
     )
     arguments = parser.parse_args()
     build(arguments.project, arguments.jobs)
