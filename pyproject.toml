@@ -19,6 +19,7 @@ hymn_projection = { path = ".", editable = true }
 [tool.pixi.tasks]
 yaml-to-md = "python -m hymn_projection.converter yaml-to-markdown ../selected-hymns/data.yml data"
 md-to-yaml = "python -m hymn_projection.converter markdown-to-yaml data data.yml"
+test = "python -m unittest discover -s tests -v"
 
 [tool.pixi.dependencies]
 pandoc = ">=3.8.3,<4"

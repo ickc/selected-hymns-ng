@@ -6,15 +6,25 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
+from os.path import commonprefix
+from pathlib import Path
 from typing import Any
 
 import panflute as pf
 
 
-# Pandoc's ``smart`` extension rewrites literal curly quotes and dashes.
-PANDOC_MARKDOWN = "markdown-smart+yaml_metadata_block+bracketed_spans"
+# Pandoc's ``smart`` extension rewrites literal curly quotes and dashes.  The
+# checked-in projection deliberately disables bracketed spans: language spans
+# exist only inside the converter, on either side of the Lua filters.
+PANDOC_MARKDOWN = "markdown-smart+yaml_metadata_block+line_blocks-bracketed_spans"
 LANGUAGES = frozenset(("en", "zh"))
+LANGUAGE_ORDER = {"en": 0, "zh": 1}
 STANZA_NAME = re.compile(r"[1-9][0-9]*-chorus")
+METER_PREFIX = re.compile(r"^(?:[0-9]+\.)+(?:D\.)?\s+")
+AUTO_LANG = {"Han": "zh", "Latin": "en"}
+FILTER_DIRECTORY = Path(__file__).with_name("filters")
+AUTO_LANG_FILTER = FILTER_DIRECTORY / "auto-lang.lua"
+STRIP_LANG_FILTER = FILTER_DIRECTORY / "strip-lang.lua"
 
 
 def _mapping(value: object, description: str) -> Mapping[Any, Any]:
@@ -61,6 +71,121 @@ class LocalizedText:
         return dict(self.translations)
 
 
+def _language(element: pf.Element) -> str | None:
+    """Return an element's language when it is a language span."""
+
+    if isinstance(element, pf.Span):
+        return element.attributes.get("lang")
+    return None
+
+
+def _text_piece(element: pf.Element) -> str:
+    """Stringify one inline without dropping significant boundary spaces."""
+
+    if isinstance(element, pf.Space):
+        return " "
+    if isinstance(element, (pf.LineBreak, pf.SoftBreak)):
+        return "\n"
+    if isinstance(element, pf.Str):
+        return element.text
+    return pf.stringify(element)
+
+
+def _exact_text(elements: Sequence[pf.Element]) -> str:
+    """Stringify adjacent metadata inlines, including trailing spaces."""
+
+    return "".join(_text_piece(element) for element in elements)
+
+
+def _localized_metadata(value: LocalizedText) -> pf.MetaInlines:
+    """Represent localized metadata as internal language spans."""
+
+    return pf.MetaInlines(
+        *(
+            pf.Span(pf.Str(text), attributes={"lang": language})
+            for language, text in value.translations.items()
+        )
+    )
+
+
+def _localized_from_metadata(value: pf.MetaValue, description: str) -> LocalizedText:
+    """Recover localized metadata after ``auto-lang.lua`` has tagged it."""
+
+    if not isinstance(value, pf.MetaInlines):
+        raise ValueError(f"{description} must contain language-detectable text")
+    translations: dict[str, str] = {}
+    for element in value.content:
+        language = _language(element)
+        if not language:
+            raise ValueError(f"all {description} text must resolve to language spans")
+        if language in translations:
+            raise ValueError(f"duplicate {language!r} text in {description}")
+        translations[language] = pf.stringify(element)
+    return LocalizedText(translations)
+
+
+def _meter_metadata(value: LocalizedText) -> pf.MetaInlines:
+    """Factor a localized meter's shared notation out of its translations."""
+
+    if len(value.translations) < 2:
+        raise ValueError("a localized meter needs two languages to remain distinguishable")
+    shared = commonprefix(list(value.translations.values()))
+    if not METER_PREFIX.fullmatch(shared):
+        raise ValueError("localized meter translations must share their meter notation")
+    return pf.MetaInlines(
+        pf.Str(shared),
+        *(
+            pf.Span(pf.Str(text[len(shared) :]), attributes={"lang": language})
+            for language, text in value.translations.items()
+        ),
+    )
+
+
+def _meter_from_metadata(value: pf.MetaValue) -> str | LocalizedText:
+    """Recover a scalar meter or expand shared notation over its translations."""
+
+    if not isinstance(value, pf.MetaInlines):
+        return pf.stringify(value)
+
+    languages = [
+        language
+        for element in value.content
+        if (language := _language(element)) is not None
+    ]
+    if len(set(languages)) <= 1:
+        # A scalar meter such as ``C.M.`` may itself be tagged as Latin.  A
+        # localized meter in this collection always has both en and zh runs.
+        return pf.stringify(value)
+
+    rendered = _exact_text(value.content)
+    match = METER_PREFIX.match(rendered)
+    if not match:
+        raise ValueError("localized meter must begin with shared meter notation")
+    shared = match.group()
+
+    translations: dict[str, str] = {}
+    offset = 0
+    for element in value.content:
+        text = _text_piece(element)
+        language = _language(element)
+        if language:
+            # ``D`` is Latin, so auto-lang may put the tail of a shared
+            # ``7.7.7.7.D.`` prefix inside the English span.  Keep only the
+            # part of each span which follows the shared prefix.
+            suffix = text[max(len(shared) - offset, 0) :]
+            if suffix:
+                translations[language] = translations.get(language, "") + suffix
+        elif offset + len(text) > len(shared):
+            raise ValueError("localized meter has untagged text after its shared prefix")
+        offset += len(text)
+
+    if set(translations) != set(languages):
+        raise ValueError("each localized meter language must have a distinct suffix")
+    return LocalizedText(
+        {language: shared + suffix for language, suffix in translations.items()}
+    )
+
+
 @dataclass
 class LyricLine:
     """One lyric line containing one or more translations."""
@@ -75,6 +200,9 @@ class LyricLine:
                 raise ValueError(f"unsupported lyric language {language!r}")
             if not isinstance(text, str):
                 raise ValueError("lyric text must be a string")
+        order = [LANGUAGE_ORDER[language] for language in self.translations]
+        if order != sorted(order):
+            raise ValueError("lyric languages must be ordered en, then zh")
 
     @classmethod
     def from_dict(cls, value: object) -> LyricLine:
@@ -87,35 +215,43 @@ class LyricLine:
 
         return dict(self.translations)
 
-    def to_list_item(self) -> pf.ListItem:
-        """Construct the Pandoc list item used for this line."""
+    def to_line_items(self) -> list[pf.LineItem]:
+        """Construct the internally tagged line-block lines for this YAML line."""
 
-        inlines: list[pf.Inline] = []
-        for language, text in self.translations.items():
-            if inlines:
-                inlines.append(pf.LineBreak)
-            inlines.append(pf.Span(pf.Str(text), attributes={"lang": language}))
-        return pf.ListItem(pf.Plain(*inlines))
+        return [
+            pf.LineItem(pf.Span(pf.Str(text), attributes={"lang": language}))
+            for language, text in self.translations.items()
+        ]
 
-    @classmethod
-    def from_list_item(cls, item: pf.ListItem) -> LyricLine:
-        """Recover one lyric line from a Pandoc list item."""
+    @staticmethod
+    def from_line_block(block: pf.LineBlock) -> list[LyricLine]:
+        """Recover ordered YAML lines from one automatically tagged stanza."""
 
-        if len(item.content) != 1 or not isinstance(item.content[0], (pf.Plain, pf.Para)):
-            raise ValueError("each lyric list item must contain one paragraph")
-
+        lines: list[LyricLine] = []
         translations: dict[str, str] = {}
-        for inline in item.content[0].content:
-            if isinstance(inline, pf.Span):
-                language = inline.attributes.get("lang")
-                if not language:
-                    raise ValueError("each lyric span must have a lang attribute")
-                if language in translations:
-                    raise ValueError(f"duplicate {language!r} span in one lyric line")
-                translations[language] = pf.stringify(inline)
-            elif not isinstance(inline, (pf.LineBreak, pf.SoftBreak, pf.Space)):
-                raise ValueError("lyric list items may only contain language spans")
-        return cls(translations)
+        previous_order = -1
+        for line in block.content:
+            if len(line.content) != 1 or not _language(line.content[0]):
+                raise ValueError(
+                    "each line-block line must resolve to exactly one language span"
+                )
+            span = line.content[0]
+            language = _language(span)
+            language_order = LANGUAGE_ORDER.get(language, -1)
+            if language_order < 0:
+                raise ValueError(f"unsupported lyric language {language!r}")
+
+            # Each YAML mapping is in en/zh order.  A repeated language, or a
+            # transition from zh back to en, therefore begins the next mapping.
+            if translations and language_order <= previous_order:
+                lines.append(LyricLine(translations))
+                translations = {}
+            translations[language] = pf.stringify(span)
+            previous_order = language_order
+
+        if translations:
+            lines.append(LyricLine(translations))
+        return lines
 
 
 @dataclass
@@ -242,15 +378,33 @@ class Hymn:
         return result
 
     def to_document(self) -> pf.Doc:
-        """Construct this hymn's Panflute document."""
+        """Construct the internally language-tagged Panflute document."""
 
         blocks: list[pf.Block] = []
         for stanza in self.stanzas:
             blocks.append(pf.Header(pf.Str(str(stanza.name)), level=1))
-            blocks.append(pf.BulletList(*(line.to_list_item() for line in stanza.lines)))
+            blocks.append(
+                pf.LineBlock(
+                    *(item for line in stanza.lines for item in line.to_line_items())
+                )
+            )
 
-        metadata = self.to_dict()
-        del metadata["stanza"]
+        metadata: dict[str, Any] = {"auto-lang": AUTO_LANG}
+        if self.author is not None:
+            metadata["author"] = _localized_metadata(self.author)
+        metadata["category"] = _localized_metadata(self.category)
+        if self.meter is not None:
+            metadata["meter"] = (
+                _meter_metadata(self.meter)
+                if isinstance(self.meter, LocalizedText)
+                else self.meter
+            )
+        if self.note is not None:
+            metadata["note"] = _localized_metadata(self.note)
+        if self.ref is not None:
+            metadata["ref"] = _localized_metadata(self.ref)
+        if self.title is not None:
+            metadata["title"] = _localized_metadata(self.title)
         document = pf.Doc(*blocks, metadata=metadata)
         # Panflute 2.0 defaults to an API version rejected by Pandoc 3.8.
         document.api_version = pandoc_api_version()
@@ -264,7 +418,7 @@ class Hymn:
             input_format="panflute",
             output_format=PANDOC_MARKDOWN,
             standalone=True,
-            extra_args=["--wrap=none"],
+            extra_args=[f"--lua-filter={STRIP_LANG_FILTER}", "--wrap=none"],
         )
         return markdown.rstrip("\n") + "\n"
 
@@ -277,30 +431,82 @@ class Hymn:
             input_format=PANDOC_MARKDOWN,
             output_format="panflute",
             standalone=True,
+            extra_args=[f"--lua-filter={AUTO_LANG_FILTER}"],
         )
-        metadata = document.get_metadata()
-        if "stanza" in metadata:
+        plain_metadata = document.get_metadata()
+        if "stanza" in plain_metadata:
             raise ValueError("stanza is body content and cannot appear in front matter")
+        if plain_metadata.get("auto-lang") != AUTO_LANG:
+            raise ValueError(f"auto-lang must be {AUTO_LANG!r}")
 
-        blocks = list(document.content)
-        if len(blocks) % 2:
-            raise ValueError("document must alternate stanza headings and lyric lists")
+        allowed_metadata = {
+            "auto-lang",
+            "author",
+            "category",
+            "meter",
+            "note",
+            "ref",
+            "title",
+        }
+        unknown = set(plain_metadata) - allowed_metadata
+        if unknown:
+            raise ValueError(f"unknown hymn metadata fields: {sorted(unknown)!r}")
+        if "category" not in document.metadata:
+            raise ValueError("missing hymn metadata field: 'category'")
+
+        metadata: dict[str, Any] = {}
+        if "author" in document.metadata:
+            metadata["author"] = _localized_from_metadata(
+                document.metadata["author"], "author"
+            ).to_dict()
+
+        metadata["category"] = _localized_from_metadata(
+            document.metadata["category"], "category"
+        ).to_dict()
+
+        if "meter" in document.metadata:
+            meter = _meter_from_metadata(document.metadata["meter"])
+            metadata["meter"] = meter.to_dict() if isinstance(meter, LocalizedText) else meter
+        for name in ("note", "ref"):
+            if name in document.metadata:
+                metadata[name] = _localized_from_metadata(
+                    document.metadata[name], name
+                ).to_dict()
+
         stanza: dict[int | str, list[dict[str, str]]] = {}
-        for index in range(0, len(blocks), 2):
-            header, lyric_list = blocks[index : index + 2]
-            if not isinstance(header, pf.Header) or header.level != 1:
-                raise ValueError("each stanza must begin with a level-one heading")
-            if not isinstance(lyric_list, pf.BulletList):
-                raise ValueError("each stanza heading must be followed by a bullet list")
-            heading = pf.stringify(header)
-            name: int | str = int(heading) if heading.isdecimal() else heading
-            if name in stanza:
-                raise ValueError(f"duplicate stanza heading {name!r}")
-            stanza[name] = [LyricLine.from_list_item(item).to_dict() for item in lyric_list.content]
+        current_name: int | str | None = None
+        current_lines: list[dict[str, str]] = []
+        for block in document.content:
+            if isinstance(block, pf.Header):
+                if block.level != 1:
+                    raise ValueError("each stanza must begin with a level-one heading")
+                if current_name is not None:
+                    if not current_lines:
+                        raise ValueError(f"stanza {current_name!r} cannot be empty")
+                    stanza[current_name] = current_lines
+                heading = pf.stringify(block)
+                current_name = int(heading) if heading.isdecimal() else heading
+                if current_name in stanza:
+                    raise ValueError(f"duplicate stanza heading {current_name!r}")
+                current_lines = []
+            elif isinstance(block, pf.LineBlock) and current_name is not None:
+                if current_lines:
+                    raise ValueError("each stanza must contain exactly one line block")
+                current_lines.extend(
+                    line.to_dict() for line in LyricLine.from_line_block(block)
+                )
+            else:
+                raise ValueError(
+                    "document body must contain stanza headings and lyric line blocks"
+                )
+        if current_name is not None:
+            if not current_lines:
+                raise ValueError(f"stanza {current_name!r} cannot be empty")
+            stanza[current_name] = current_lines
 
-        has_title = "title" in metadata
-        title = metadata.pop("title", None)
         metadata["stanza"] = stanza
-        if has_title:
-            metadata["title"] = title
+        if "title" in document.metadata:
+            metadata["title"] = _localized_from_metadata(
+                document.metadata["title"], "title"
+            ).to_dict()
         return cls.from_dict(metadata)
