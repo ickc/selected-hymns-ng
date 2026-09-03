@@ -39,7 +39,7 @@ there is no generated file to review in a diff.
 | module | what it is |
 |---|---|
 | `model.py` | the validated `Hymn` and the **lossless** codec: YAML ↔ `data/N.md`. Runs Pandoc with the vendored Lua filters. |
-| `slides.py` | the **one-way** projection: `Hymn` → slide Markdown, plus the landing page and the chorus report. |
+| `slides.py` | the **one-way** projection: `Hymn` → slide Markdown, plus the chorus report. |
 | `converter.py` | the CLI, and the directory-level streaming each direction. |
 
 The two projections are separate on purpose. The codec must round-trip and so
