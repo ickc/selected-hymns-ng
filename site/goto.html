@@ -25,7 +25,10 @@
       return;
     }
     message.hidden = true;
-    window.open('slide/' + number + '.html', '_blank', 'noopener');
+    // A blocked popup returns null, and silence is the worst answer to give
+    // whoever is running the meeting: go there in this tab instead.
+    var deck = 'slide/' + number + '.html';
+    if (!window.open(deck, '_blank', 'noopener')) location.href = deck;
   });
 
   input.addEventListener('input', function () { message.hidden = true; });
