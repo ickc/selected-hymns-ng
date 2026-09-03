@@ -1,11 +1,13 @@
 /* The two pages of this site that are not decks: the landing page, which is a
-   box to open a hymn by number, and the chorus report behind it. */
+   box to open a hymn by number and a box to search for one, and the chorus
+   report behind it. */
 
 :root {
   --ink: #1a1a1a;
   --quiet: #777;
   --rule: #e6e6e6;
   --warn: #b00020;
+  --found: #fff3a3;
 }
 
 body {
@@ -76,6 +78,90 @@ h1.title {
   color: var(--warn);
 }
 
+/* The other way in, for the hymn whose number nobody remembers: the same row
+   of controls over the site's own search index, with what it found below. */
+.hymn-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 1.5rem 0 0;
+}
+
+.hymn-search label {
+  color: var(--quiet);
+}
+
+.hymn-search input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+.hymn-search button {
+  padding: 0.3rem 0.9rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hymn-search button:hover,
+.hymn-search button:focus {
+  border-color: var(--ink);
+}
+
+.hymn-search-status {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--quiet);
+}
+
+.hymn-search-results {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hymn-search-results li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.hymn-search-results a {
+  text-decoration: none;
+}
+
+.hymn-search-results a:hover,
+.hymn-search-results a:focus {
+  text-decoration: underline;
+}
+
+/* Which slide of the hymn the line is on. */
+.hymn-search-section {
+  margin-left: 0.5rem;
+  color: var(--quiet);
+  font-size: 0.85em;
+}
+
+.hymn-search-line {
+  margin: 0.15rem 0 0;
+  color: var(--quiet);
+}
+
+.hymn-search-line mark {
+  color: var(--ink);
+  background: var(--found);
+}
+
 /* The chorus report. */
 table {
   border-collapse: collapse;
@@ -104,6 +190,7 @@ a {
     --quiet: #999;
     --rule: #333;
     --warn: #ff8a80;
+    --found: #5a4b00;
   }
 
   body {

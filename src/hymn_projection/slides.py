@@ -329,12 +329,16 @@ def chorus_report_markdown(entries: list[tuple[int, Hymn]]) -> str:
 
 
 def index_markdown(entries: list[tuple[int, Hymn]]) -> str:
-    """Render the landing page: a box to open a hymn by its number.
+    """Render the landing page: a box to open a hymn, and one to search for it.
 
-    A deck's URL is its number, which is how a hymn is called for, so typing
-    the number is the whole of what this page has to do. It is generated
-    rather than static only so that the highest number is the collection's
-    own; ``goto.html`` reads the range off the field rather than repeating it.
+    A deck's URL is its number, which is how a hymn is called for, so the
+    number box is the first of the two and the one that carries the focus.
+    The other is for the hymn whose number nobody remembers: ``search.html``
+    answers it from the index Quarto writes beside these pages.
+
+    The page is generated rather than static only so that the highest number
+    is the collection's own; ``goto.html`` reads the range off the field
+    rather than repeating it.
     """
 
     highest = max(number for number, _ in entries)
@@ -355,6 +359,15 @@ def index_markdown(entries: list[tuple[int, Hymn]]) -> str:
             '         aria-describedby="hymn-goto-message" autofocus>',
             '  <button type="submit">Open 開啟</button>',
             '  <span id="hymn-goto-message" class="hymn-goto-message" role="alert" hidden></span>',
+            "</form>",
+            "",
+            '<form class="hymn-search" id="hymn-search" role="search" autocomplete="off">',
+            '  <label for="hymn-query">Search 搜尋</label>',
+            '  <input id="hymn-query" type="search" placeholder="a title, or a line 標題或歌詞"',
+            '         aria-describedby="hymn-search-status">',
+            '  <button type="submit">Search 搜尋</button>',
+            '  <p id="hymn-search-status" class="hymn-search-status" role="status" hidden></p>',
+            '  <ol id="hymn-search-results" class="hymn-search-results"></ol>',
             "</form>",
         ]
     ) + "\n"
