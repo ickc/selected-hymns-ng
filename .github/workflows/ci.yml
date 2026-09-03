@@ -34,17 +34,12 @@ jobs:
         with:
           locked: true
       - run: pixi run test
-      # `site/slide/*.md` and `site/index.md` are generated and checked in, so
-      # they can drift from the writer that produces them. Regenerating and
-      # finding no diff is what keeps the checked-in projection trustworthy --
-      # the same guarantee the YAML round trip gives `data/`.
-      - run: pixi run md-to-slide
-      - name: Fail if the checked-in projection is stale
-        # --intent-to-add so that a file the writer newly emits shows up as a
-        # diff rather than as an untracked file `git diff` would not look at.
-        run: |
-          git add --intent-to-add -- site/
-          git diff --exit-code --stat -- site/
+      # The projection is generated from data/ rather than carried in the
+      # history, so what there is to check is that it still generates -- and
+      # the list of hymns whose chorus is resolved rather than read, which is
+      # printed into the log for the run to be checked against the hymnal.
+      # --expect fails if that list grows, so a new one cannot arrive unseen.
+      - run: pixi run chorus-report -- --expect 17
 
   build:
     name: Build and check every deck
@@ -60,7 +55,7 @@ jobs:
           locked: true
       # ~260 MB, and only `check-slides` needs it. The render does not.
       - run: pixi run setup-chrome
-      - run: pixi run slides
+      - run: pixi run build
       # The reason the decks are checkable at all: this fails on a deck whose
       # lyrics overflow a slide, or one where the fitting never ran, and
       # reports any whose type ended up small. Nobody is going to look at 848
