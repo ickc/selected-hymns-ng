@@ -341,7 +341,7 @@ def index_markdown(entries: list[tuple[int, Hymn]]) -> str:
     return "\n".join(
         [
             "---",
-            "title: 詩歌選輯 Selected Hymns",
+            "title: 詩歌選集 Selected Hymns",
             "lang: en",
             # The project renders decks; this one page opts out. How that page
             # looks is `_quarto.yml`'s business, as it is for the decks.
