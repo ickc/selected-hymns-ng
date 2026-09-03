@@ -61,8 +61,8 @@ class Slide:
     notes: list[tuple[str, str]] = field(default_factory=list)
 
 
-def chorus_by_stanza(stanzas: list[Stanza]) -> dict[int, dict[str, list[LyricLine]]]:
-    """Return the chorus each numbered stanza is sung with, per language.
+def chorus_sources(stanzas: list[Stanza]) -> dict[int, dict[str, str]]:
+    """Name the chorus each numbered stanza's languages are sung with.
 
     Four shapes occur in the collection: no chorus at all; one ``1-chorus``
     repeated after every stanza; a chorus paired with each stanza; and a mix,
@@ -71,27 +71,39 @@ def chorus_by_stanza(stanzas: list[Stanza]) -> dict[int, dict[str, list[LyricLin
     ``1-chorus`` under a new Chinese one.  Carrying the most recent chorus
     forward per language covers all four, and reproduces the instruction that
     hymn 705 states in prose without reading it.
+
+    This is the rule itself, kept apart from the lyrics it selects so that the
+    report in ``site/chorus.md`` names exactly what the slides sing.
     """
 
-    latest: dict[str, list[LyricLine]] = {}
-    resolved: dict[int, dict[str, list[LyricLine]]] = {}
+    latest: dict[str, str] = {}
+    resolved: dict[int, dict[str, str]] = {}
     current: int | None = None
     for stanza in stanzas:
         if isinstance(stanza.name, int):
             current = stanza.name
-            resolved[current] = {
-                language: list(lines) for language, lines in latest.items()
-            }
+            resolved[current] = dict(latest)
             continue
         for language in {l for line in stanza.lines for l in line.translations}:
-            latest[language] = [
-                line for line in stanza.lines if language in line.translations
-            ]
+            latest[language] = str(stanza.name)
         if current is not None:
-            resolved[current] = {
-                language: list(lines) for language, lines in latest.items()
-            }
+            resolved[current] = dict(latest)
     return resolved
+
+
+def chorus_by_stanza(stanzas: list[Stanza]) -> dict[int, dict[str, list[LyricLine]]]:
+    """Return the lyrics of the chorus each numbered stanza is sung with."""
+
+    named = {str(stanza.name): stanza for stanza in stanzas}
+    return {
+        number: {
+            language: [
+                line for line in named[name].lines if language in line.translations
+            ]
+            for language, name in sources.items()
+        }
+        for number, sources in chorus_sources(stanzas).items()
+    }
 
 
 def merge_languages(chorus: dict[str, list[LyricLine]]) -> list[LyricLine]:
@@ -230,6 +242,90 @@ def _note_block(slide: Slide) -> str:
     ordered = sorted(slide.notes, key=lambda note: LANGUAGE_ORDER[note[0]])
     body = "\\\n".join(span(text, language) for language, text in ordered)
     return f"\n\n::: singing-note\n{body}\n:::"
+
+
+def chorus_shape(hymn: Hymn) -> str:
+    """Classify what the resolution had to do, not how the choruses are written.
+
+    The two differ, which is the point of classifying this way. Hymns 284 and
+    671 pair a chorus with every stanza and so look as though nothing is
+    resolved — but their later choruses are Chinese only, so English still
+    falls back to ``1-chorus``. Judging by the written shape would hide exactly
+    the case worth checking.
+    """
+
+    numbers = [
+        stanza.name for stanza in hymn.stanzas if isinstance(stanza.name, int)
+    ]
+    names = [
+        str(stanza.name) for stanza in hymn.stanzas if not isinstance(stanza.name, int)
+    ]
+    if not names:
+        return "none"
+    sources = chorus_sources(hymn.stanzas)
+    if names == ["1-chorus"]:
+        return "single"
+    if names == [f"{number}-chorus" for number in numbers] and all(
+        set(sources[number].values()) == {f"{number}-chorus"} for number in numbers
+    ):
+        return "paired"
+    return "mixed"
+
+
+def chorus_report_markdown(entries: list[tuple[int, Hymn]]) -> str:
+    """Report every hymn whose chorus the projection had to work out.
+
+    Three of the four shapes need no thought: a hymn with no chorus, one whose
+    single ``1-chorus`` is repeated throughout, and one pairing a chorus with
+    each stanza all sing what is written where it is written.  The rest are
+    resolved by a rule, and a rule applied to 848 hymns deserves somewhere it
+    can be read against the hymnal. This page is that list, regenerated with
+    the slides so it cannot drift from what they sing.
+    """
+
+    counts = {shape: 0 for shape in ("none", "single", "paired", "mixed")}
+    mixed: list[tuple[int, Hymn]] = []
+    for number, hymn in entries:
+        shape = chorus_shape(hymn)
+        counts[shape] += 1
+        if shape == "mixed":
+            mixed.append((number, hymn))
+
+    lines = [
+        "---",
+        "title: Chorus resolution 和詩對照",
+        "lang: en",
+        "format: html",
+        "---",
+        "",
+        "A congregation sings the chorus again after each stanza, and the source",
+        "records each chorus once. Which chorus a stanza takes is therefore",
+        "worked out rather than read: **each language takes the most recent",
+        "chorus at or before its stanza.**",
+        "",
+        f"- {counts['none']} hymns have no chorus;",
+        f"- {counts['single']} have one `1-chorus`, repeated throughout;",
+        f"- {counts['paired']} pair a chorus with each stanza;",
+        f"- {counts['mixed']} replace the chorus partway through, and are listed below.",
+        "",
+        "Only the last group needs checking. Where the two columns differ, the",
+        "hymn sings one language's chorus against a different one in the other:",
+        "that is the collection's own doing, not the rule's, and hymn 705 states",
+        "it in prose (`第三至第六節用第二節和詩`).",
+        "",
+        "| Hymn | Stanza | English chorus | Chinese chorus |",
+        "|---:|---:|---|---|",
+    ]
+    for number, hymn in mixed:
+        for stanza, sources in sorted(chorus_sources(hymn.stanzas).items()):
+            english = sources.get("en")
+            chinese = sources.get("zh")
+            lines.append(
+                f"| [{number}](slide/{number}.html) | {stanza} "
+                f"| {f'`{english}`' if english else '—'} "
+                f"| {f'`{chinese}`' if chinese else '—'} |"
+            )
+    return "\n".join(lines) + "\n"
 
 
 def index_markdown(entries: list[tuple[int, Hymn]]) -> str:

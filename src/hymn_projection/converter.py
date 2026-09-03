@@ -9,7 +9,12 @@ from pathlib import Path
 import yaml
 
 from .model import Hymn
-from .slides import LINES_PER_SLIDE, index_markdown, to_markdown as slide_markdown
+from .slides import (
+    LINES_PER_SLIDE,
+    chorus_report_markdown,
+    index_markdown,
+    to_markdown as slide_markdown,
+)
 
 
 def hymns_from_yaml(path: Path) -> Iterator[Hymn]:
@@ -72,7 +77,7 @@ def markdown_to_yaml(source: Path, destination: Path) -> None:
 def markdown_to_slides(
     source: Path, destination: Path, limit: int = LINES_PER_SLIDE
 ) -> None:
-    """Write each hymn's slide projection, and the index reaching them."""
+    """Write each hymn's slide projection, and the pages reaching them."""
 
     destination.mkdir(parents=True, exist_ok=True)
     entries: list[tuple[int, Hymn]] = []
@@ -85,10 +90,14 @@ def markdown_to_slides(
             raise ValueError(f"{path}: {error}") from error
         (destination / f"{number}.md").write_text(slides, encoding="utf-8")
         entries.append((number, hymn))
-    # The index sits beside `slide/`, not inside it, because it is the site's
-    # landing page and the only document here which is not a deck.
+    # These sit beside `slide/`, not inside it: they are the site's pages
+    # rather than decks. The chorus report is written here, with the slides,
+    # so that what it lists cannot drift from what they sing.
     (destination.parent / "index.md").write_text(
         index_markdown(entries), encoding="utf-8"
+    )
+    (destination.parent / "chorus.md").write_text(
+        chorus_report_markdown(entries), encoding="utf-8"
     )
 
 

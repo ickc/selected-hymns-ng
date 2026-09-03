@@ -5,6 +5,9 @@ from unittest import TestCase
 from hymn_projection.model import Hymn
 from hymn_projection.slides import (
     chorus_by_stanza,
+    chorus_report_markdown,
+    chorus_shape,
+    chorus_sources,
     document_language,
     slides,
     split_lines,
@@ -170,3 +173,53 @@ class ProjectionTest(TestCase):
         value = hymn({1: [{"en": "It's here"}]})
 
         self.assertIn("title: '[It''s here]{lang=en}'", to_markdown(value, 1))
+
+
+class ChorusReportTest(TestCase):
+    """The list of hymns whose chorus the projection had to work out."""
+
+    def test_the_three_plain_shapes_are_named(self) -> None:
+        none = hymn({1: [{"en": "One"}]})
+        single = hymn({1: [{"en": "One"}], "1-chorus": [{"en": "R"}], 2: [{"en": "Two"}]})
+        paired = hymn(
+            {
+                1: [{"en": "One"}],
+                "1-chorus": [{"en": "R"}],
+                2: [{"en": "Two"}],
+                "2-chorus": [{"en": "S"}],
+            }
+        )
+
+        self.assertEqual(chorus_shape(none), "none")
+        self.assertEqual(chorus_shape(single), "single")
+        self.assertEqual(chorus_shape(paired), "paired")
+
+    def test_a_replacement_partway_through_is_the_shape_worth_checking(self) -> None:
+        value = hymn(
+            {
+                1: [{"en": "One"}],
+                "1-chorus": [{"en": "R"}],
+                2: [{"en": "Two"}],
+                3: [{"en": "Three"}],
+                "3-chorus": [{"en": "S"}],
+            }
+        )
+
+        self.assertEqual(chorus_shape(value), "mixed")
+
+    def test_the_report_names_the_chorus_each_language_takes(self) -> None:
+        mixed = hymn(
+            {
+                1: [{"en": "One", "zh": "一"}],
+                "1-chorus": [{"en": "R", "zh": "甲"}],
+                2: [{"en": "Two", "zh": "二"}],
+                "2-chorus": [{"zh": "乙"}],
+            }
+        )
+        report = chorus_report_markdown([(1, hymn({1: [{"en": "Plain"}]})), (668, mixed)])
+
+        self.assertEqual(chorus_sources(mixed.stanzas)[2], {"en": "1-chorus", "zh": "2-chorus"})
+        self.assertIn("| [668](slide/668.html) | 2 | `1-chorus` | `2-chorus` |", report)
+        self.assertIn("1 hymns have no chorus", report)
+        # A hymn needing no resolution is counted and then left out of the list.
+        self.assertNotIn("slide/1.html", report)
