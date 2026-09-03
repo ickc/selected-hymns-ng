@@ -1,0 +1,122 @@
+/*-- scss:defaults --*/
+
+// The lyric size is chosen at load time by fit.html, so this root size only
+// governs the labels and the title slide.
+$presentation-font-size-root: 32px;
+// The families the font pattern declares, named directly so the fallback
+// survives if font.kolen.dev is unreachable. These variables reach reveal's
+// headings and chrome, which a `body` rule does not.
+// `$font-family-sans-serif` is the variable reveal's --r-main-font is built
+// from, whatever the family actually is.
+$font-family-sans-serif: "TeX Gyre Schola", serif;
+$presentation-heading-font: "TeX Gyre Schola", serif;
+$body-bg: #fff;
+$body-color: #1a1a1a;
+$link-color: #1a1a1a;
+
+/*-- scss:rules --*/
+
+// :lang() matches by prefix, so this reaches every zh-Hant span.
+.reveal :lang(zh) {
+  font-family: "Noto Sans TC", "Noto Sans CJK TC", sans-serif;
+}
+
+// The stanza label. It says which verse is on screen and whether the stanza
+// was divided, which matters to whoever is leading and to no one singing --
+// hence small and grey rather than a heading.
+.reveal .slides section > h2 {
+  margin: 0 0 0.25em;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: #aaa;
+  text-align: center;
+  text-transform: none;
+}
+
+.reveal .lyrics {
+  line-height: 1.3;
+  text-align: center;
+}
+
+.reveal .lyrics p {
+  margin: 0 0 0.3em;
+}
+
+// A singing instruction lifted out of the lyric line it was written in
+// ("Repeat the last four lines"). It belongs on the slide, but never at the
+// size of the words being sung.
+.reveal .singing-note {
+  margin-top: 0.6em;
+  font-size: 20px;
+  color: #888;
+  text-align: center;
+}
+
+// The side-by-side layout, reached with ?grid on the deck's URL. Each lyric
+// line remains a row of its own; its language spans occupy fixed columns, so a
+// missing translation cannot move the next line into the wrong row or column.
+//
+// English wraps against a Chinese line that does not, so the rows drift apart
+// on long lines. That is why interleaved is the default.
+body.grid .reveal .lyrics {
+  text-align: left;
+}
+
+body.grid .reveal .lyrics p {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 1.2em;
+}
+
+body.grid .reveal .lyrics p > :lang(en) {
+  grid-column: 1;
+}
+
+body.grid .reveal .lyrics p > :lang(zh) {
+  grid-column: 2;
+}
+
+// A wholly monolingual slide has no alignment to preserve, so use its width.
+body.grid .reveal .lyrics:not(:has(:lang(zh))) p > :lang(en),
+body.grid .reveal .lyrics:not(:has(:lang(en))) p > :lang(zh) {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+body.grid .reveal .lyrics br {
+  display: none;
+}
+
+// The title slide: the number is what a hymn is called out by, so it leads.
+.reveal .slides section.hymn-title {
+  text-align: center;
+}
+
+.reveal .hymn-number {
+  font-size: 2.2em;
+  line-height: 1;
+  color: #1a1a1a;
+}
+
+// One language per line, as on the stanza slides.
+.reveal .slides section.hymn-title h1.title span {
+  display: block;
+}
+
+.reveal .slides section.hymn-title h1.title {
+  margin: 0.3em 0 0;
+  font-size: 1.1em;
+  font-weight: 400;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.reveal .hymn-category,
+.reveal .hymn-author,
+.reveal .hymn-ref,
+.reveal .hymn-note {
+  margin-top: 0.5em;
+  font-size: 0.5em;
+  color: #888;
+}

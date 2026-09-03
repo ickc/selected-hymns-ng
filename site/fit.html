@@ -1,0 +1,77 @@
+<script>
+// Size every lyric block to the deck's fixed logical viewport.
+//
+// Reveal keeps only the current slide displayed, so each block is measured
+// with display forced on and visibility off, then the whole hymn is set to the
+// smallest size that fits any of its slides -- one size per hymn, so the type
+// does not jump between stanzas. Nothing can overflow and nothing is left
+// small, which is the pair of failures a fixed font size trades between.
+//
+// The result is left on the document as `data-fit-size`, which is what
+// scripts/check_slides.py reads.
+(function () {
+  function fit() {
+    // Read as a parameter, not as a substring: `?nogrid` and any tracking
+    // parameter with `grid` in its name would otherwise turn the deck into
+    // two columns in the middle of a service.
+    var query = new URLSearchParams(location.search);
+    if (query.has('grid')) document.body.classList.add('grid');
+    var config = (window.Reveal && Reveal.getConfig)
+      ? Reveal.getConfig()
+      : {width: 1280, height: 720, margin: 0.05};
+    var height = config.height * (1 - 2 * config.margin);
+    var blocks = document.querySelectorAll('.reveal .slides section > .lyrics');
+    var sizes = [];
+
+    blocks.forEach(function (block) {
+      var slide = block.parentElement;
+      var style = slide.getAttribute('style') || '';
+      slide.style.display = 'block';
+      slide.style.visibility = 'hidden';
+
+      var available = height;
+      slide.querySelectorAll(':scope > h2, :scope > .singing-note').forEach(function (other) {
+        available -= other.offsetHeight + 8;
+      });
+
+      var low = 8, high = 120, best = low;
+      for (var step = 0; step < 14; step++) {
+        var size = (low + high) / 2;
+        block.style.fontSize = size + 'px';
+        // A line too long to fit wraps, so height alone catches both axes.
+        if (block.scrollHeight <= available) { best = size; low = size; } else { high = size; }
+      }
+      sizes.push(best);
+      slide.setAttribute('style', style);
+    });
+
+    if (!sizes.length) return;
+    var chosen = Math.min.apply(null, sizes);
+    var overflow = 0;
+    blocks.forEach(function (block) {
+      block.style.fontSize = chosen + 'px';
+      var slide = block.parentElement;
+      var style = slide.getAttribute('style') || '';
+      slide.style.display = 'block';
+      slide.style.visibility = 'hidden';
+      var available = height;
+      slide.querySelectorAll(':scope > h2, :scope > .singing-note').forEach(function (other) {
+        available -= other.offsetHeight + 8;
+      });
+      overflow = Math.max(overflow, block.scrollHeight - available);
+      slide.setAttribute('style', style);
+    });
+    document.documentElement.dataset.fitSize = chosen.toFixed(1);
+    document.documentElement.dataset.fitOverflow = overflow.toFixed(1);
+    document.documentElement.dataset.fitSlides = String(blocks.length);
+  }
+
+  document.fonts.ready.then(function () { setTimeout(fit, 50); });
+  window.addEventListener('resize', function () {
+    document.querySelectorAll('.reveal .slides section > .lyrics').forEach(function (block) {
+      block.style.fontSize = '';
+    });
+    fit();
+  });
+})();
+</script>

@@ -1,74 +1,41 @@
-# Selected hymns Markdown projection
+# Selected Hymns 詩歌選集
 
-This repository is a bidirectionally lossless Markdown projection of
-[`selected-hymns`](https://github.com/ickc/selected-hymns). The canonical YAML
-collection remains `../selected-hymns/data.yml`; each item is rendered here as
-`data/N.md` and can be converted back to the canonical YAML shape.
+The text of the hymnal, kept as data so that it can be published in more than
+one way. 848 hymns, English and Traditional Chinese together.
 
-Run the conversions with:
+## The data
 
-```sh
-pixi run yaml-to-md
-pixi run md-to-yaml
-```
+`data/N.md` — one Markdown file per hymn, numbered as the hymnal numbers them.
+This is the source everything else is built from, and the one thing here that
+is carried in git.
 
-## Markdown representation
+It is a lossless projection of the canonical YAML collection in
+[`selected-hymns`](https://github.com/ickc/selected-hymns): each hymn can be
+converted back to the canonical shape and comes out unchanged.
+[FORMAT.md](FORMAT.md) describes what the Markdown looks like and why.
 
-The checked-in Markdown contains no Pandoc bracketed-span syntax. Each stanza
-is a level-one heading followed by one paragraph whose physical lines are hard
-line breaks. English and Chinese translations are adjacent lines within that
-paragraph.
+## What is published from it
 
-Text scalars in the canonical YAML are Markdown source, not literal text.  The
-projection therefore preserves inline constructs such as `*emphasis*` and
-`^[inline notes]`; the converter's temporary language spans do not escape or
-flatten that markup.
+**<https://ickc.github.io/selected-hymns-ng/>** — the site, rebuilt from
+`data/` on every push to `main`:
 
-```markdown
-# 1
+- **Open a hymn by its number.** A hymn is called out by number in a meeting,
+  so typing the number is the whole of it; the hymn opens in a new tab.
+- **Or search for it** from the box in the header, by a line, a title or a
+  phrase in either language. The search reaches every slide, so a
+  half-remembered line is enough, and it opens the hymn at that stanza.
+- **Each hymn as slides to project**, one stanza at a time with the chorus that
+  belongs to it, both languages, sized to fill the screen without overflowing
+  it. Add `?grid` to a hymn's URL for two aligned columns instead of
+  interleaved lines.
+- **[Which hymns' chorus had to be worked
+  out](https://ickc.github.io/selected-hymns-ng/chorus.html)**, and what each
+  stanza sings — the source records a chorus once, and a congregation sings it
+  again after every stanza.
 
-God, our Father, we adore Thee!
-阿爸父神，我們拜你，
-We, Thy children, bless Thy Name!
-稱頌你名永無止！
-```
+More products from the same data may follow.
 
-The canonical language order is English then Chinese. After `auto-lang.lua`
-restores the language of each line, a repeated language or a transition from
-Chinese back to English marks the next YAML lyric-line mapping. This also
-retains runs of English-only or Chinese-only mappings without placeholders.
+## Working on it
 
-Localized front-matter mappings are similarly flattened:
-
-```yaml
-category: 讚美和敬拜——聖父（祂的偉大）
-note: Repeat the last two lines重複最後兩行
-```
-
-When Markdown is read, the codec injects an `auto-lang` map from Unicode script
-to the collection's language tags, and `auto-lang.lua` restores temporary
-`lang` spans in the Pandoc tree. The Python codec uses those spans to rebuild
-the localized YAML mappings. When Markdown is written, `strip-lang.lua`
-removes the temporary spans, and the codec removes the injected map before
-returning the source.
-
-A localized meter has a shared notation followed by its language-specific
-suffixes:
-
-```yaml
-meter: 11.10.11.10. with chorus和
-```
-
-The codec expands the shared `11.10.11.10. ` prefix back into both YAML values.
-A meter with zero or one detected language remains a YAML scalar.
-
-The inference is checked against the complete source collection by the test
-and regeneration workflow. Text which cannot be distinguished by Unicode
-script must be corrected in the canonical data or represented explicitly;
-script detection cannot recreate information absent from the text.
-
-## Vendored filters
-
-The Lua filters and their generated Unicode script table are vendored under
-`src/hymn_projection/filters`. Their exact origin is recorded in the README in
-that directory.
+[DEVELOPER.md](DEVELOPER.md) — the architecture, the tasks, and how it is
+built, checked and published.

@@ -6,7 +6,11 @@ from unittest import TestCase
 
 import yaml
 
-from hymn_projection.converter import markdown_to_yaml, yaml_to_markdown
+from hymn_projection.converter import (
+    markdown_to_slides,
+    markdown_to_yaml,
+    yaml_to_markdown,
+)
 from hymn_projection.model import Hymn
 
 
@@ -75,6 +79,32 @@ class HymnConversionTest(TestCase):
             markdown_to_yaml(markdown, recovered)
 
             self.assertEqual(recovered.read_bytes(), source.read_bytes())
+
+    def test_an_empty_source_directory_is_named_as_the_problem(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            empty = Path(temporary_directory) / "data"
+            empty.mkdir()
+
+            with self.assertRaisesRegex(ValueError, "no N.md files"):
+                markdown_to_yaml(empty, Path(temporary_directory) / "out.yml")
+
+    def test_a_hymn_that_leaves_the_source_leaves_the_projection(self) -> None:
+        source_yaml = yaml.safe_dump([HYMN_DATA, HYMN_DATA], allow_unicode=True, sort_keys=False)
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "source.yml"
+            markdown = root / "data"
+            slides = root / "site" / "slide"
+            source.write_text(source_yaml, encoding="utf-8")
+            yaml_to_markdown(source, markdown)
+            markdown_to_slides(markdown, slides)
+            self.assertTrue((slides / "2.md").exists())
+
+            (markdown / "2.md").unlink()
+            markdown_to_slides(markdown, slides)
+
+            self.assertFalse((slides / "2.md").exists())
+            self.assertTrue((slides / "1.md").exists())
 
     def test_unknown_hymn_field_is_rejected(self) -> None:
         invalid = dict(HYMN_DATA, unexpected="value")

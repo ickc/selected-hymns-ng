@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# A superseded branch build is worth cancelling; a superseded `main` build is
+# not, because its deploy job may already be publishing. The deploy job carries
+# a second, narrower group for the same reason.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Least privilege by default. Only `deploy` widens this, and only for itself.
+permissions:
+  contents: read
+
+# Actions are pinned to commit SHAs rather than tags: a tag can be moved to
+# point at new code. The trailing comment is the human-readable version.
+
+jobs:
+  test:
+    name: Tests and projection drift
+    # Branches in this repository are already covered by the `push` trigger, so
+    # the `pull_request` trigger only needs to serve pull requests from forks.
+    # Without this, every same-repo pull request would build twice.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
+        with:
+          locked: true
+      - run: pixi run test
+      # The projection is generated from data/ rather than carried in the
+      # history, so what there is to check is that it still generates -- and
+      # the list of hymns whose chorus is resolved rather than read, which is
+      # printed into the log for the run to be checked against the hymnal.
+      # --expect fails if that list grows, so a new one cannot arrive unseen.
+      - run: pixi run chorus-report -- --expect 17
+
+  build:
+    name: Build and check every deck
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    # 848 decks to render and then 848 to measure in a browser. Neither is
+    # slow per deck; there are simply a lot of them.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
+        with:
+          locked: true
+      # ~260 MB, and only `check-slides` needs it. The render does not.
+      - run: pixi run setup-chrome
+      - run: pixi run build
+      # The reason the decks are checkable at all: this fails on a deck whose
+      # lyrics overflow a slide, or one where the fitting never ran, and
+      # reports any whose type ended up small. Nobody is going to look at 848
+      # decks, so this looks at them instead. See scripts/check_slides.py.
+      - run: pixi run check-slides
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: site/_site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    # Only `main` is published. Every other branch still builds and is checked
+    # above, which is what a pull request needs; nothing about a branch build
+    # touches the live site.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    # A deployment in flight is not interrupted by the next push: cancelling it
+    # can leave Pages serving a half-published site. Queueing is the documented
+    # behaviour for this, and is why deployment has its own concurrency group
+    # rather than sharing the workflow's.
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

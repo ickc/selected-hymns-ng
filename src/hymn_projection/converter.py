@@ -9,6 +9,11 @@ from pathlib import Path
 import yaml
 
 from .model import Hymn
+from .slides import (
+    LINES_PER_SLIDE,
+    chorus_report_markdown,
+    to_markdown as slide_markdown,
+)
 
 
 def hymns_from_yaml(path: Path) -> Iterator[Hymn]:
@@ -35,6 +40,11 @@ def numbered_markdown_files(directory: Path) -> list[Path]:
     """Return N.md files in order, rejecting non-numeric names and gaps."""
 
     files = list(directory.glob("*.md"))
+    if not files:
+        # Every caller goes on to describe the collection as a whole -- its
+        # range, its choruses -- and would otherwise fail somewhere further in,
+        # naming anything but the directory that was empty.
+        raise ValueError(f"no N.md files in {directory}")
     if any(not path.stem.isdecimal() for path in files):
         raise ValueError(f"all Markdown files in {directory} must be named N.md")
     files.sort(key=lambda path: int(path.stem))
@@ -68,22 +78,63 @@ def markdown_to_yaml(source: Path, destination: Path) -> None:
     write_yaml(hymns_from_markdown(source), destination)
 
 
+def markdown_to_slides(
+    source: Path, destination: Path, limit: int = LINES_PER_SLIDE
+) -> None:
+    """Write each hymn's slide projection, and the report beside it."""
+
+    destination.mkdir(parents=True, exist_ok=True)
+    entries: list[tuple[int, Hymn]] = []
+    for path in numbered_markdown_files(source):
+        number = int(path.stem)
+        try:
+            hymn = Hymn.from_markdown(path.read_text(encoding="utf-8"))
+            slides = slide_markdown(hymn, number, limit)
+        except ValueError as error:
+            raise ValueError(f"{path}: {error}") from error
+        (destination / f"{number}.md").write_text(slides, encoding="utf-8")
+        entries.append((number, hymn))
+    # A hymn that leaves `data/` must leave here too. The render globs this
+    # directory, so a deck left behind would go on being published while the
+    # index, which knows the collection's range, refused to link to it.
+    written = {f"{number}.md" for number, _ in entries}
+    for stale in destination.glob("*.md"):
+        if stale.name not in written:
+            stale.unlink()
+    # This sits beside `slide/`, not inside it: it is a page of the site
+    # rather than a deck. It is written here, with the slides, so that what it
+    # lists cannot drift from what they sing.
+    (destination.parent / "chorus.md").write_text(
+        chorus_report_markdown(entries), encoding="utf-8"
+    )
+
+
 def main() -> None:
     """Run one conversion direction from the command line."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "direction",
-        choices=("yaml-to-markdown", "markdown-to-yaml"),
+        choices=("yaml-to-markdown", "markdown-to-yaml", "markdown-to-slides"),
     )
     parser.add_argument("source", type=Path)
     parser.add_argument("destination", type=Path)
+    parser.add_argument(
+        "--lines-per-slide",
+        type=int,
+        default=LINES_PER_SLIDE,
+        help="lyric lines a slide holds before a stanza is divided",
+    )
     arguments = parser.parse_args()
 
     if arguments.direction == "yaml-to-markdown":
         yaml_to_markdown(arguments.source, arguments.destination)
-    else:
+    elif arguments.direction == "markdown-to-yaml":
         markdown_to_yaml(arguments.source, arguments.destination)
+    else:
+        markdown_to_slides(
+            arguments.source, arguments.destination, arguments.lines_per_slide
+        )
 
 
 if __name__ == "__main__":

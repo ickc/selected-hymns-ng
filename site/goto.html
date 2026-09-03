@@ -1,0 +1,43 @@
+<script>
+// Type a number, press Enter, and the deck opens in a new tab -- so this page
+// stays where it is, which is what someone running a meeting wants when the
+// next hymn is called.
+//
+// The form itself is in the generated index, which is where the collection's
+// highest number is known. This reads that range off the field rather than
+// repeating it.
+(function () {
+  var form = document.getElementById('hymn-goto');
+  if (!form) return;
+  var input = document.getElementById('hymn-number');
+  var message = document.getElementById('hymn-goto-message');
+  var highest = parseInt(input.max, 10) || 0;
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var number = parseInt(input.value, 10);
+    if (!(number >= 1) || (highest && number > highest)) {
+      message.textContent = highest
+        ? 'No hymn ' + (input.value || '?') + ' — 1 to ' + highest
+        : 'Enter a hymn number';
+      message.hidden = false;
+      input.select();
+      return;
+    }
+    message.hidden = true;
+    // Open first so the return value still distinguishes a blocked popup,
+    // then sever the opener before sending the new tab to the deck. Passing
+    // `noopener` to window.open() would return null even when it succeeded.
+    var deck = 'slide/' + number + '.html';
+    var popup = window.open('', '_blank');
+    if (popup) {
+      popup.opener = null;
+      popup.location = deck;
+    } else {
+      location.href = deck;
+    }
+  });
+
+  input.addEventListener('input', function () { message.hidden = true; });
+})();
+</script>

@@ -1,0 +1,95 @@
+# Every hymn deck is rendered from the projection in `slide/`, which
+# `pixi run md-to-slide` writes and nothing here edits. The Markdown says what
+# is sung; this file, `hymn.scss` and `page.scss` say how it looks.
+# `website` rather than `default` for three things a default project does not
+# give: 848 decks share one copy of reveal.js in `site_libs`, where a default
+# project stages it per document at 5 MB each; every document is indexed into
+# `search.json`; and the theme puts a search box over that index in the navbar
+# of every page, which is the whole of the search feature here.
+
+# The size of the collection: the hymnal is a printed book of 848 hymns, and
+# `index.md` takes the number from here rather than repeating it, so the one
+# page that has to know the range names it once.
+hymns: 848
+
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.md
+    - chorus.md
+    - slide/*.md
+
+website:
+  title: 詩歌選集 Selected Hymns
+  # Over `search.json`, which holds an entry per *slide*, so a half-remembered
+  # line finds the hymn and opens at the stanza it is in.
+  search:
+    location: navbar
+    type: textbox
+  navbar:
+    left:
+      - href: index.md
+        text: Hymns 詩歌
+      - href: chorus.md
+        text: Chorus 和詩
+    right:
+      - icon: github
+        href: https://github.com/ickc/selected-hymns-ng
+        aria-label: The data and the code on GitHub
+  # A deck is a presentation, not a page of the site: it carries none of this.
+  page-navigation: false
+
+format:
+  # The landing page and the chorus report: the two documents here that are
+  # not decks. Every document names the one of these two formats it wants in
+  # its own front matter, decks included -- a project declaring more than one
+  # renders each document to all of them otherwise, so every deck would also
+  # be built as a plain page over the top of itself.
+  html:
+    # A theme rather than `theme: none`: the navbar, the search box in it and
+    # the light/dark switch all come with it, and `page.scss` is only what the
+    # hymnal adds -- its type, and the two-language field.
+    theme:
+      light: [default, page.scss]
+      dark: [darkly, page.scss]
+    toc: false
+    anchor-sections: false
+    include-in-header:
+      - text: |
+          <link rel="preconnect" href="https://font.kolen.dev">
+          <link rel="preconnect" href="https://font.kolen.dev" crossorigin>
+          <link rel="stylesheet" href="https://font.kolen.dev/assets/faces.css">
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap">
+    # What the number box on the landing page does. The box itself is in the
+    # generated index, which knows the collection's range.
+    include-after-body:
+      - goto.html
+  revealjs:
+    theme: [default, hymn.scss]
+    template-partials:
+      - title-slide.html
+    # A projected hymn needs none of reveal's chrome, and a stray click on it
+    # during a service is worse than useless.
+    controls: false
+    menu: false
+    progress: false
+    slide-number: false
+    hash: true
+    # `fit.html` sizes the lyrics against this logical viewport, so it is a
+    # fixed contract rather than a preference.
+    width: 1280
+    height: 720
+    margin: 0.05
+    center: true
+    include-in-header:
+      # The font pattern from https://font.kolen.dev. `faces.css` declares the
+      # faces; Noto Sans TC is a separate origin, and a Chinese hymnal is
+      # exactly the consumer that has to ask for it.
+      - text: |
+          <link rel="preconnect" href="https://font.kolen.dev">
+          <link rel="preconnect" href="https://font.kolen.dev" crossorigin>
+          <link rel="stylesheet" href="https://font.kolen.dev/assets/faces.css">
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap">
+    include-after-body:
+      - fit.html
