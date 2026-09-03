@@ -117,10 +117,9 @@ looks for.
 The project is a `website` rather than a `default` project for three things:
 848 decks share one copy of reveal.js in `site_libs` instead of a 5 MB copy
 each; every deck is indexed into `search.json`; and the theme carries the
-navbar the search box sits in. The generated [chorus
-report](https://ickc.github.io/selected-hymns-ng/chorus.html) is a developer
-diagnostic: it is rendered, but deliberately absent from the navbar and search
-index.
+navbar the search box sits in. The generated `chorus` report is a developer
+diagnostic: it is rendered locally, but deliberately absent from the navbar and
+search index.
 
 ### Search
 
