@@ -42,8 +42,8 @@ def _linux_physical_cores(cpuinfo: str, allowed: set[int] | None = None) -> int 
     return len(cores) or None
 
 
-def physical_cpu_count() -> int:
-    """Return usable physical cores, with a logical-core fallback."""
+def available_cpu_count() -> int:
+    """Return physical cores on hardware and allocated vCPUs in a guest."""
 
     if sys.platform.startswith("linux"):
         try:
@@ -51,11 +51,21 @@ def physical_cpu_count() -> int:
         except AttributeError:
             allowed = None
         try:
-            count = _linux_physical_cores(
-                Path("/proc/cpuinfo").read_text(encoding="utf-8"), allowed
-            )
+            cpuinfo = Path("/proc/cpuinfo").read_text(encoding="utf-8")
         except OSError:
-            count = None
+            cpuinfo = ""
+        # Virtual CPU topology describes the host implementation, not extra
+        # capacity available to this guest. Use every vCPU assigned to it.
+        hypervisor = any(
+            name.strip() in {"flags", "Features"}
+            and "hypervisor" in value.split()
+            for line in cpuinfo.splitlines()
+            for name, separator, value in [line.partition(":")]
+            if separator
+        )
+        if hypervisor:
+            return len(allowed) if allowed else os.cpu_count() or 1
+        count = _linux_physical_cores(cpuinfo, allowed)
         if count is not None:
             return count
         if allowed:

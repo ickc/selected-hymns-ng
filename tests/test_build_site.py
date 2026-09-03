@@ -2,8 +2,9 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
-from hymn_projection.environment import _linux_physical_cores
+from hymn_projection.environment import _linux_physical_cores, available_cpu_count
 from scripts.build_site import _merge, _partition
 
 
@@ -32,6 +33,21 @@ class CpuCountTest(TestCase):
 
     def test_linux_count_obeys_the_process_cpu_affinity(self) -> None:
         self.assertEqual(_linux_physical_cores(CPUINFO, {0, 1}), 1)
+
+    def test_virtual_machine_uses_every_allocated_vcpu(self) -> None:
+        virtual_cpuinfo = CPUINFO.replace("processor: 0", "processor: 0\nflags: hypervisor")
+        with (
+            patch("hymn_projection.environment.sys.platform", "linux"),
+            patch(
+                "hymn_projection.environment.os.sched_getaffinity",
+                return_value={0, 1, 2, 3},
+            ),
+            patch(
+                "hymn_projection.environment.Path.read_text",
+                return_value=virtual_cpuinfo,
+            ),
+        ):
+            self.assertEqual(available_cpu_count(), 4)
 
 
 class PartitionTest(TestCase):

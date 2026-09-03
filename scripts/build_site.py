@@ -29,8 +29,8 @@ import yaml
 from hymn_projection.environment import (
     DEVELOP,
     PRODUCTION,
+    available_cpu_count,
     build_mode,
-    physical_cpu_count,
 )
 
 
@@ -169,9 +169,9 @@ def build(project: Path, jobs: int) -> None:
     started = time.monotonic()
     process_count = len(partitions)
     noun = "process" if process_count == 1 else "processes"
-    physical_cores = physical_cpu_count()
+    available_cores = available_cpu_count()
     print(f"Build mode: {mode}", flush=True)
-    print(f"Detected {physical_cores} physical CPU cores", flush=True)
+    print(f"Detected {available_cores} usable CPU cores", flush=True)
     print(
         f"Rendering {len(slides)} hymn decks with {process_count} Quarto {noun}",
         flush=True,
@@ -250,8 +250,8 @@ def main() -> None:
         "-j",
         "--jobs",
         type=_positive_integer,
-        default=physical_cpu_count(),
-        help="parallel Quarto processes (default: all physical CPU cores)",
+        default=available_cpu_count(),
+        help="parallel Quarto processes (default: all usable CPU cores)",
     )
     arguments = parser.parse_args()
     build(arguments.project, arguments.jobs)

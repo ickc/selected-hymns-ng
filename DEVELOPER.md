@@ -209,10 +209,12 @@ report, so neither parallel nor serial rendering can emit `chorus.html`.
 Developer mode generates and renders the report, though it remains absent from
 navigation and search.
 
-The build detects physical rather than logical CPU cores (respecting Linux CPU
-affinity), prints the detected and selected counts, and uses every physical
-core by default. Set it explicitly when CPU or memory calls for a different
-balance:
+The build uses physical rather than SMT threads on hardware (respecting Linux
+CPU affinity). Under a hypervisor it uses every vCPU allocated to the guest,
+because its reported physical topology describes the host implementation
+rather than additional capacity available to the runner. It prints the
+detected and selected counts and uses that capacity by default. Set it
+explicitly when CPU or memory calls for a different balance:
 
 ```sh
 pixi run build -- -j 4
