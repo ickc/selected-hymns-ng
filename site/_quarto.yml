@@ -9,12 +9,13 @@ project:
   output-dir: _site
   render:
     - index.md
+    - chorus.md
     - slide/*.md
 
 format:
-  # The contents page, and the only document here that is not a deck. It
-  # selects this format in its own front matter; everything else takes the
-  # project default below.
+  # The landing page and the chorus report: the two documents here that are
+  # not decks. Each selects this format in its own front matter; everything
+  # else takes the project default below.
   html:
     theme: none
     css: index.css
@@ -26,6 +27,10 @@ format:
           <link rel="preconnect" href="https://font.kolen.dev" crossorigin>
           <link rel="stylesheet" href="https://font.kolen.dev/assets/faces.css">
           <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap">
+    # What the box on the landing page does. The box itself is in the
+    # generated index, which knows the collection's range.
+    include-after-body:
+      - goto.html
   revealjs:
     theme: [default, hymn.scss]
     template-partials:

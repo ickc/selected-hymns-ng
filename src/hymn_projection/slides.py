@@ -329,32 +329,35 @@ def chorus_report_markdown(entries: list[tuple[int, Hymn]]) -> str:
 
 
 def index_markdown(entries: list[tuple[int, Hymn]]) -> str:
-    """Render the contents page the decks are reached from.
+    """Render the landing page: a box to open a hymn by its number.
 
-    A deck's own URL is its number, which is how a hymn is called for, so the
-    directory only has to make the numbers findable and show enough of each
-    hymn to recognise it by.
+    A deck's URL is its number, which is how a hymn is called for, so typing
+    the number is the whole of what this page has to do. It is generated
+    rather than static only so that the highest number is the collection's
+    own; ``goto.html`` reads the range off the field rather than repeating it.
     """
 
-    lines = [
-        "---",
-        "title: 詩歌選輯 Selected Hymns",
-        "lang: en",
-        # The project renders decks; this one page opts out. How that page
-        # looks is `_quarto.yml`'s business, as it is for the decks.
-        "format: html",
-        "---",
-        "",
-        "::: hymn-index",
-    ]
-    for number, hymn in entries:
-        named = " ".join(
-            span(text, language) for language, text in title(hymn).items()
-        )
-        lines.append(f"[**{number}** {named}](slide/{number}.html)\\")
-    lines[-1] = lines[-1].removesuffix("\\")
-    lines.append(":::")
-    return "\n".join(lines) + "\n"
+    highest = max(number for number, _ in entries)
+    return "\n".join(
+        [
+            "---",
+            "title: 詩歌選輯 Selected Hymns",
+            "lang: en",
+            # The project renders decks; this one page opts out. How that page
+            # looks is `_quarto.yml`'s business, as it is for the decks.
+            "format: html",
+            "---",
+            "",
+            '<form class="hymn-goto" id="hymn-goto" autocomplete="off">',
+            '  <label for="hymn-number">Hymn 詩歌</label>',
+            '  <input id="hymn-number" type="number" inputmode="numeric"',
+            f'         min="1" max="{highest}" step="1" placeholder="123"',
+            '         aria-describedby="hymn-goto-message" autofocus>',
+            '  <button type="submit">Open 開啟</button>',
+            '  <span id="hymn-goto-message" class="hymn-goto-message" role="alert" hidden></span>',
+            "</form>",
+        ]
+    ) + "\n"
 
 
 def to_markdown(hymn: Hymn, number: int, limit: int = LINES_PER_SLIDE) -> str:

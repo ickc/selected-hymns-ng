@@ -1,10 +1,11 @@
-/* The contents page: 848 hymns in one scrollable column, so the number a
-   hymn is called for is the thing that has to be findable. */
+/* The two pages of this site that are not decks: the landing page, which is a
+   box to open a hymn by number, and the chorus report behind it. */
 
 :root {
   --ink: #1a1a1a;
   --quiet: #777;
   --rule: #e6e6e6;
+  --warn: #b00020;
 }
 
 body {
@@ -31,27 +32,70 @@ h1.title {
   font-weight: 400;
 }
 
-.hymn-index a {
-  display: block;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid var(--rule);
-  color: inherit;
-  text-decoration: none;
+/* The box. A hymn is called for by its number, so typing the number is the
+   whole interaction; the deck opens in a new tab and this page stays put. */
+.hymn-goto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0;
 }
 
-.hymn-index a:hover,
-.hymn-index a:focus {
-  background: #f6f6f6;
-}
-
-/* The number leads and stays put, so the column scans as a numbered list
-   however long the title beside it runs. */
-.hymn-index strong {
-  display: inline-block;
-  min-width: 3.25rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+.hymn-goto label {
   color: var(--quiet);
+}
+
+.hymn-goto input {
+  width: 6rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+.hymn-goto button {
+  padding: 0.3rem 0.9rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hymn-goto button:hover,
+.hymn-goto button:focus {
+  border-color: var(--ink);
+}
+
+.hymn-goto-message {
+  flex-basis: 100%;
+  color: var(--warn);
+}
+
+/* The chorus report. */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+
+code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.9em;
+}
+
+a {
+  color: inherit;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -59,14 +103,10 @@ h1.title {
     --ink: #e8e8e8;
     --quiet: #999;
     --rule: #333;
+    --warn: #ff8a80;
   }
 
   body {
     background: #141414;
-  }
-
-  .hymn-index a:hover,
-  .hymn-index a:focus {
-    background: #1f1f1f;
   }
 }
