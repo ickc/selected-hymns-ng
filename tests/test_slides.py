@@ -138,6 +138,17 @@ class ProjectionTest(TestCase):
             {"en": "God, our Father, we adore Thee!", "zh": "阿爸父神，我們拜你"},
         )
 
+    def test_a_name_ends_where_the_sentence_did_not(self) -> None:
+        # The stop goes in either script; the exclamation stays in both.
+        value = hymn({1: [{"en": "Majesty, worship His majesty.", "zh": "威嚴，敬拜主的威嚴。"}]})
+        kept = hymn({1: [{"en": "Christ is risen!", "zh": "基督復活！"}]})
+
+        self.assertEqual(
+            title(value),
+            {"en": "Majesty, worship His majesty", "zh": "威嚴，敬拜主的威嚴"},
+        )
+        self.assertEqual(title(kept), {"en": "Christ is risen!", "zh": "基督復活！"})
+
     def test_a_hymn_with_a_title_keeps_it(self) -> None:
         value = hymn({1: [{"en": "First line"}]}, title={"en": "A Title"})
 

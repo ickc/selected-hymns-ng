@@ -29,8 +29,10 @@ BCP47 = {"en": "en", "zh": "zh-Hant"}
 # this collection these are singing instructions rather than annotations of the
 # text, so a slide shows them beside the stanza instead of as a footnote.
 INLINE_NOTE = re.compile(r"\^\[([^\[\]]*(?:\[[^\]]*\][^\[\]]*)*)\]")
-# Punctuation a lyric line ends with which a title should not.
-TITLE_TRAILING = "，。、；：,;: "
+# Punctuation a lyric line ends with which a title should not. `!` and `？`
+# are not here: a hymn named "Christ is risen!" keeps it. A full stop is only
+# ever the end of the sentence the line happens to be, in either script.
+TITLE_TRAILING = "，。、；：,;:. "
 
 
 def span(text: str, language: str) -> str:
