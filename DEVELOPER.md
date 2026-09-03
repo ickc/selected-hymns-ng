@@ -132,6 +132,22 @@ The two pages are not in the index: `theme: none` leaves Quarto nothing it
 recognizes as content to index there. Nothing is lost by it — what anyone
 searches a hymnal for is lyrics.
 
+### When a render will not finish
+
+A render builds each document beside its source and moves the lot into `_site`
+at the end, so two renderers over one project will move the same output twice:
+
+```
+ERROR: NotFound: rename 'site/chorus.html' -> 'site/_site/chorus.html'
+```
+
+naming a file that had just been moved successfully. The second renderer is
+usually a `pixi run serve` preview left running in another terminal: it
+re-renders on every change, including the ones `md-to-slide` makes at the start
+of a build. Stop it and build again — `pixi run clean` clears what the failed
+render left beside its sources. CI renders once, from a fresh checkout, and
+never meets this.
+
 ### Fitting
 
 A fixed font size trades between two failures: lyrics that overflow the slide,

@@ -32,7 +32,7 @@ check-slides = { cmd = "python scripts/check_slides.py site/_site/slide", descri
 setup-chrome = { cmd = "quarto install chrome-headless-shell --no-prompt", description = "Install the headless browser check-slides needs" }
 test = { cmd = "python -m unittest discover -s tests -v", description = "Run the conversion and projection tests" }
 chorus-report = { cmd = "python scripts/chorus_report.py data", description = "List the hymns whose chorus the projection resolves, to check against the hymnal" }
-clean = { cmd = "rm -rf site/_site site/.quarto site/slide site/index.md site/chorus.md", description = "Remove everything the projection and the render generate" }
+clean = { cmd = "rm -rf site/_site site/.quarto site/site_libs site/slide site/index.md site/chorus.md site/index.html site/chorus.html", description = "Remove everything the projection and the render generate" }
 
 [tool.pixi.dependencies]
 pandoc = ">=3.8.3,<4"
