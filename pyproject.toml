@@ -19,6 +19,7 @@ hymn_projection = { path = ".", editable = true }
 [tool.pixi.tasks]
 yaml-to-md = "python -m hymn_projection.converter yaml-to-markdown ../selected-hymns/data.yml data"
 md-to-yaml = "python -m hymn_projection.converter markdown-to-yaml data data.yml"
+md-to-slide = "python -m hymn_projection.converter markdown-to-slides data site/slide"
 test = "python -m unittest discover -s tests -v"
 
 [tool.pixi.dependencies]
