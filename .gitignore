@@ -2,11 +2,11 @@
 .pixi/*
 !.pixi/config.toml
 
-# The slide projection and the pages beside it, written by `pixi run
+# The slide projection and the report beside it, written by `pixi run
 # md-to-slide` from data/ and rebuilt in CI. data/ is the source; these are
-# not, so they are not carried in the history.
+# not, so they are not carried in the history. `site/index.md` is: nothing
+# generates it.
 site/slide/
-site/index.md
 site/chorus.md
 
 # Quarto render output. Its cache is ignored by site/.gitignore, which Quarto

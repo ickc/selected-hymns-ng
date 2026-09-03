@@ -14,7 +14,7 @@ flowchart LR
   yaml["../selected-hymns/data.yml<br/>canonical YAML"]
   md["<b>data/N.md</b><br/>848 files, in git"]
   slide["site/slide/N.md"]
-  index["site/index.md"]
+  index["site/index.md<br/>written, in git"]
   chorus["site/chorus.md"]
   built["site/_site/<br/>848 decks, 2 pages, search.json"]
   pages["GitHub Pages"]
@@ -22,7 +22,6 @@ flowchart LR
   yaml -- "yaml-to-md" --> md
   md -- "md-to-yaml" --> yaml
   md -- "md-to-slide" --> slide
-  md -- "md-to-slide" --> index
   md -- "md-to-slide" --> chorus
   slide -- "build (quarto render)" --> built
   index -- "build" --> built
@@ -31,9 +30,9 @@ flowchart LR
   built -- "deploy, main only" --> pages
 ```
 
-Only `data/` is in git. Everything to the right of it is generated, ignored,
-and rebuilt here and in CI — so it cannot be stale, and there is no generated
-file to review in a diff.
+`data/` and `site/index.md` are in git; everything else to the right is
+generated, ignored, and rebuilt here and in CI — so it cannot be stale, and
+there is no generated file to review in a diff.
 
 ## The Python
 
@@ -53,18 +52,17 @@ paragraph per lyric line, one language span per translation. Layout is the
 theme's business, which is how the same file renders interleaved or — with
 `?grid` on the URL — as two aligned columns.
 
-### Why `index.md` and `chorus.md` are generated
+### Why `chorus.md` is generated and `index.md` is not
 
-Both are functions of the collection, written by `md-to-slide` beside the
-slides rather than by hand:
+`chorus.md` *is* the resolution — which chorus each stanza of each hymn takes
+— so it is written by `md-to-slide` with the slides it describes, and cannot
+disagree with them. Writing it by hand would be transcribing the code's output.
 
-- `index.md` carries the collection's range (`max="848"`) so `goto.html` can
-  reject a number that has no hymn without repeating the range anywhere.
-- `chorus.md` *is* the resolution: which chorus each stanza of each hymn takes.
-  Writing it by hand would be transcribing the code's output, and it would
-  drift the first time the data changed.
-
-Generated with the slides, they cannot disagree with them.
+`index.md` is a form and a heading. The one thing on it that belongs to the
+collection is the range the number box accepts, and the collection is a printed
+book of 848 hymns: `hymns: 848` in `_quarto.yml`, `max="{{< meta hymns >}}"` in
+the page, and `goto.html` reads the range off the field. A constant kept where
+the site is configured, named once.
 
 ## The site
 
@@ -73,8 +71,9 @@ nothing in `site/` edits it. What the rest of `site/` is:
 
 ```mermaid
 flowchart TD
+  idx["index.md<br/>written, in git"]
+
   subgraph gen["written by md-to-slide"]
-    idx["index.md"]
     chr["chorus.md"]
     dck["slide/N.md × 848"]
   end
@@ -183,7 +182,7 @@ lossless codec, `tests/test_slides.py` the slide projection.
 ```
 yaml-to-md     Render the canonical YAML collection as data/N.md
 md-to-yaml     Rebuild the canonical YAML from data/N.md
-md-to-slide    Project data/N.md as the slide Markdown, index and chorus report
+md-to-slide    Project data/N.md as the slide Markdown and the chorus report
 build          Regenerate the projection and render every deck into site/_site
 serve          Preview the site on $QUARTO_PORT (8020)
 check-slides   Measure every rendered deck in a browser; fail on overflow

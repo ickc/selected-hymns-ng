@@ -336,42 +336,6 @@ def chorus_report_markdown(entries: list[tuple[int, Hymn]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def index_markdown(entries: list[tuple[int, Hymn]]) -> str:
-    """Render the landing page: a box to open a hymn by its number.
-
-    A deck's URL is its number, which is how a hymn is called for, so typing
-    the number is the whole of what this page has to do. The hymn whose number
-    nobody remembers is the navbar's business: the theme puts a search box
-    over the site's own index there, on this page and every other.
-
-    The page is generated rather than static only so that the highest number
-    is the collection's own; ``goto.html`` reads the range off the field
-    rather than repeating it.
-    """
-
-    highest = max(number for number, _ in entries)
-    return "\n".join(
-        [
-            "---",
-            "title: 詩歌選集 Selected Hymns",
-            "lang: en",
-            # The project renders decks; this one page opts out. How that page
-            # looks is `_quarto.yml`'s business, as it is for the decks.
-            "format: html",
-            "---",
-            "",
-            '<form class="hymn-goto" id="hymn-goto" autocomplete="off">',
-            '  <label for="hymn-number">Hymn 詩歌</label>',
-            '  <input id="hymn-number" type="number" inputmode="numeric"',
-            f'         min="1" max="{highest}" step="1" placeholder="1"',
-            '         aria-describedby="hymn-goto-message" autofocus>',
-            '  <button type="submit">Open 開啟</button>',
-            '  <span id="hymn-goto-message" class="hymn-goto-message" role="alert" hidden></span>',
-            "</form>",
-        ]
-    ) + "\n"
-
-
 def to_markdown(hymn: Hymn, number: int, limit: int = LINES_PER_SLIDE) -> str:
     """Render one hymn as the slide Markdown for a presentation writer."""
 

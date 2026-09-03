@@ -6,6 +6,12 @@
 # project stages it per document at 5 MB each; every document is indexed into
 # `search.json`; and the theme puts a search box over that index in the navbar
 # of every page, which is the whole of the search feature here.
+
+# The size of the collection: the hymnal is a printed book of 848 hymns, and
+# `index.md` takes the number from here rather than repeating it, so the one
+# page that has to know the range names it once.
+hymns: 848
+
 project:
   type: website
   output-dir: _site
