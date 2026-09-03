@@ -72,6 +72,7 @@ def main() -> int:
         parser.error(f"no rendered decks in {arguments.directory}")
 
     unfitted: list[Path] = []
+    failed: list[tuple[Path, Exception]] = []
     overflowing: list[tuple[Path, float]] = []
     small: list[tuple[Path, float]] = []
     sizes: list[float] = []
@@ -84,7 +85,15 @@ def main() -> int:
         }
         for future in concurrent.futures.as_completed(futures):
             deck = futures[future]
-            measured = future.result()
+            # One browser that hangs or dies must not take the run with it. The
+            # exception would otherwise leave this loop, and the pool would
+            # still wait for all 800-odd decks still queued before anything was
+            # reported at all -- the whole render budget spent to say nothing.
+            try:
+                measured = future.result()
+            except Exception as error:
+                failed.append((deck, error))
+                continue
             if "size" not in measured:
                 unfitted.append(deck)
                 continue
@@ -109,8 +118,10 @@ def main() -> int:
         print(f"  OVERFLOWS by {overflow:.1f}px  {deck.name}", file=sys.stderr)
     for deck in unfitted:
         print(f"  NOT FITTED (no data-fit-size)  {deck.name}", file=sys.stderr)
+    for deck, error in failed:
+        print(f"  NOT MEASURED ({error!r})  {deck.name}", file=sys.stderr)
 
-    return 1 if overflowing or unfitted else 0
+    return 1 if overflowing or unfitted or failed else 0
 
 
 if __name__ == "__main__":
