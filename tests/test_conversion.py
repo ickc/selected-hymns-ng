@@ -99,11 +99,11 @@ class HymnConversionTest(TestCase):
             slides = root / "site" / "slide"
             source.write_text(source_yaml, encoding="utf-8")
             yaml_to_markdown(source, markdown)
-            markdown_to_slides(markdown, slides)
+            markdown_to_slides(markdown, slides, jobs=2)
             self.assertTrue((slides / "2.md").exists())
 
             (markdown / "2.md").unlink()
-            markdown_to_slides(markdown, slides)
+            markdown_to_slides(markdown, slides, jobs=2)
 
             self.assertFalse((slides / "2.md").exists())
             self.assertTrue((slides / "1.md").exists())
@@ -118,7 +118,7 @@ class HymnConversionTest(TestCase):
             )
 
             with patch.dict("os.environ", {BUILD_MODE_ENV: "develop"}):
-                markdown_to_slides(source, root / "site" / "slide")
+                markdown_to_slides(source, root / "site" / "slide", jobs=1)
 
             report = (root / "site" / "chorus.md").read_text(encoding="utf-8")
             self.assertIn("search: false", report)
@@ -137,10 +137,37 @@ class HymnConversionTest(TestCase):
             (site / "chorus.html").write_text("stale", encoding="utf-8")
 
             with patch.dict("os.environ", {BUILD_MODE_ENV: "production"}):
-                markdown_to_slides(source, site / "slide")
+                markdown_to_slides(source, site / "slide", jobs=1)
 
             self.assertFalse((site / "chorus.md").exists())
             self.assertFalse((site / "chorus.html").exists())
+
+    def test_parallel_projection_is_byte_identical(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "data"
+            source.mkdir()
+            for number in range(1, 4):
+                (source / f"{number}.md").write_text(
+                    Hymn.from_dict(HYMN_DATA).to_markdown(), encoding="utf-8"
+                )
+
+            serial = root / "serial" / "slide"
+            parallel = root / "parallel" / "slide"
+            markdown_to_slides(source, serial, jobs=1)
+            markdown_to_slides(source, parallel, jobs=3)
+
+            serial_files = {
+                path.relative_to(serial.parent): path.read_bytes()
+                for path in serial.parent.rglob("*")
+                if path.is_file()
+            }
+            parallel_files = {
+                path.relative_to(parallel.parent): path.read_bytes()
+                for path in parallel.parent.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(parallel_files, serial_files)
 
     def test_unknown_hymn_field_is_rejected(self) -> None:
         invalid = dict(HYMN_DATA, unexpected="value")

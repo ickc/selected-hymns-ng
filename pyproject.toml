@@ -23,7 +23,7 @@ env = { QUARTO_PORT = "8020" }
 [tool.pixi.tasks]
 yaml-to-md = { cmd = "python -m hymn_projection.converter yaml-to-markdown ../selected-hymns/data.yml data", description = "Render the canonical YAML collection as data/N.md" }
 md-to-yaml = { cmd = "python -m hymn_projection.converter markdown-to-yaml data data.yml", description = "Rebuild the canonical YAML from data/N.md" }
-md-to-slide = { cmd = "python -m hymn_projection.converter markdown-to-slides data site/slide", description = "Project data/N.md as the slide Markdown and the chorus report in site/" }
+md-to-slide = { cmd = "python -m hymn_projection.converter markdown-to-slides data site/slide", description = "Project data/N.md concurrently as slide Markdown and the developer chorus report" }
 build = { cmd = "python scripts/build_site.py site", depends-on = ["md-to-slide"], description = "Regenerate the projection and render the hymn decks in parallel into site/_site" }
 build-serial = { cmd = "quarto render site", depends-on = ["md-to-slide"], description = "Regenerate the projection and render the site in one Quarto process" }
 serve = { cmd = "quarto preview site --render none --port $QUARTO_PORT --host 0.0.0.0", depends-on = ["build"], description = "Build in parallel, then preview and rebuild changed pages on $QUARTO_PORT" }

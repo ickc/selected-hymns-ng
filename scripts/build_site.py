@@ -17,18 +17,21 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import filecmp
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from typing import Any, Sequence
 
 import yaml
 
-from hymn_projection.environment import DEVELOP, PRODUCTION, build_mode
+from hymn_projection.environment import (
+    DEVELOP,
+    PRODUCTION,
+    build_mode,
+    physical_cpu_count,
+)
 
 
 IGNORED_PROJECT_ENTRIES = {
@@ -48,52 +51,6 @@ def _positive_integer(value: str) -> int:
     if number < 1:
         raise argparse.ArgumentTypeError("must be at least 1")
     return number
-
-
-def _linux_physical_cores(cpuinfo: str, allowed: set[int] | None = None) -> int | None:
-    cores: set[tuple[str, str]] = set()
-    for block in cpuinfo.split("\n\n"):
-        fields = {}
-        for line in block.splitlines():
-            name, separator, value = line.partition(":")
-            if separator:
-                fields[name.strip()] = value.strip()
-        try:
-            processor = int(fields["processor"])
-            core = (fields["physical id"], fields["core id"])
-        except (KeyError, ValueError):
-            continue
-        if allowed is None or processor in allowed:
-            cores.add(core)
-    return len(cores) or None
-
-
-def _physical_cpu_count() -> int:
-    if sys.platform.startswith("linux"):
-        try:
-            allowed = set(os.sched_getaffinity(0))
-        except AttributeError:
-            allowed = None
-        try:
-            count = _linux_physical_cores(
-                Path("/proc/cpuinfo").read_text(encoding="utf-8"), allowed
-            )
-        except OSError:
-            count = None
-        if count is not None:
-            return count
-        if allowed:
-            return len(allowed)
-    elif sys.platform == "darwin":
-        result = subprocess.run(
-            ["sysctl", "-n", "hw.physicalcpu"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode == 0 and result.stdout.strip().isdecimal():
-            return int(result.stdout)
-    return os.cpu_count() or 1
 
 
 def _partition(paths: Sequence[Path], jobs: int) -> list[list[Path]]:
@@ -212,19 +169,29 @@ def build(project: Path, jobs: int) -> None:
     started = time.monotonic()
     process_count = len(partitions)
     noun = "process" if process_count == 1 else "processes"
-    physical_cores = _physical_cpu_count()
-    print(f"Build mode: {mode}")
-    print(f"Detected {physical_cores} physical CPU cores")
-    print(f"Rendering {len(slides)} hymn decks with {process_count} Quarto {noun}")
+    physical_cores = physical_cpu_count()
+    print(f"Build mode: {mode}", flush=True)
+    print(f"Detected {physical_cores} physical CPU cores", flush=True)
+    print(
+        f"Rendering {len(slides)} hymn decks with {process_count} Quarto {noun}",
+        flush=True,
+    )
 
     with tempfile.TemporaryDirectory(prefix=".quarto-build-", dir=project.parent) as temporary:
         temporary_path = Path(temporary)
+        preparation_started = time.monotonic()
         workers: list[Path] = []
         for index, partition in enumerate(partitions):
             worker = temporary_path / f"worker-{index + 1}"
             _copy_project(project, worker, partition, first=index == 0, mode=mode)
             workers.append(worker)
+        print(
+            f"Prepared {len(workers)} isolated projects in "
+            f"{time.monotonic() - preparation_started:.1f}s",
+            flush=True,
+        )
 
+        render_started = time.monotonic()
         failures: list[tuple[int, subprocess.CompletedProcess[str]]] = []
         with ThreadPoolExecutor(max_workers=len(workers)) as executor:
             futures = {
@@ -237,10 +204,10 @@ def build(project: Path, jobs: int) -> None:
                 if result.returncode:
                     failures.append((index, result))
                 else:
-                    print(f"  worker {index + 1}/{len(workers)} finished")
+                    print(f"  worker {index + 1}/{len(workers)} finished", flush=True)
                     if result.stdout or result.stderr:
-                        print(result.stdout, end="")
-                        print(result.stderr, end="")
+                        print(result.stdout, end="", flush=True)
+                        print(result.stderr, end="", flush=True)
 
         if failures:
             for index, result in sorted(failures):
@@ -248,7 +215,12 @@ def build(project: Path, jobs: int) -> None:
                 print(result.stdout, end="")
                 print(result.stderr, end="")
             raise RuntimeError(f"{len(failures)} Quarto worker(s) failed")
+        print(
+            f"Rendered worker projects in {time.monotonic() - render_started:.1f}s",
+            flush=True,
+        )
 
+        merge_started = time.monotonic()
         combined = temporary_path / "combined"
         search_count = _merge([worker / "_site" for worker in workers], combined)
         rendered = len(list((combined / "slide").glob("*.html")))
@@ -262,9 +234,13 @@ def build(project: Path, jobs: int) -> None:
         if output.exists():
             shutil.rmtree(output)
         combined.replace(output)
+        print(f"Merged worker output in {time.monotonic() - merge_started:.1f}s", flush=True)
 
     elapsed = time.monotonic() - started
-    print(f"Built {len(slides)} decks and {search_count} search entries in {elapsed:.1f}s")
+    print(
+        f"Built {len(slides)} decks and {search_count} search entries in {elapsed:.1f}s",
+        flush=True,
+    )
 
 
 def main() -> None:
@@ -274,7 +250,7 @@ def main() -> None:
         "-j",
         "--jobs",
         type=_positive_integer,
-        default=_physical_cpu_count(),
+        default=physical_cpu_count(),
         help="parallel Quarto processes (default: all physical CPU cores)",
     )
     arguments = parser.parse_args()

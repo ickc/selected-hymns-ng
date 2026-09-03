@@ -154,11 +154,21 @@ are identical, and merges their per-slide search entries. Worker 1 also builds
 the landing page and developer-only chorus report. Nothing partial replaces
 `site/_site` until every worker and the merge have succeeded.
 
+The copies contain only project configuration/assets plus each worker's
+disjoint share of the 4 MB slide source. They do not duplicate an existing
+site. On the 16-core benchmark, preparing all copies took 0.1 seconds and
+merging their output took 0.1 seconds; the work between those log lines is
+Quarto. Symlinking this small input would add path-resolution coupling without
+materially changing build time.
+
 ```mermaid
 flowchart LR
-  slides["slide/*.md × 848"] --> split{{"round-robin split"}}
+  data["data/N.md × 848"] --> projection{{"thread pool<br/>Pandoc × N"}}
+  projection --> slides["slide/*.md × 848"]
+  projection --> chorus["chorus.md<br/>developer mode"]
+  slides --> split{{"round-robin split"}}
   index["index.md"] --> w1
-  chorus["chorus.md"] --> w1
+  chorus --> w1
   split --> w1["isolated worker 1"]
   split --> w2["isolated worker 2"]
   split --> wn["isolated worker N"]
@@ -180,6 +190,16 @@ native serial render gives the same 6,611 IDs and record contents and the same
 files everywhere else. `search.json` itself is not byte-identical because
 Quarto's full render emits its top-level records in a different order; that
 array order is not part of the search behavior.
+
+The source projection is parallel too. Each hymn parse invokes an external
+Pandoc process, so a `ThreadPoolExecutor` keeps all physical cores busy without
+adding a second layer of Python worker processes. On 16 physical cores, the
+complete projection measured 19.60 seconds serially, 2.58 seconds with threads,
+and 2.23 seconds with processes. At the four-core CI scale, threads measured
+5.58 seconds and processes 5.38 seconds; the small difference does not justify
+the process startup, pickling and cross-platform complexity. `executor.map`
+also preserves numeric hymn order, and a test checks serial and parallel
+projection output byte-for-byte.
 
 ### Build modes
 

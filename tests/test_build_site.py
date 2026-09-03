@@ -3,7 +3,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from scripts.build_site import _linux_physical_cores, _merge, _partition
+from hymn_projection.environment import _linux_physical_cores
+from scripts.build_site import _merge, _partition
 
 
 CPUINFO = """\
