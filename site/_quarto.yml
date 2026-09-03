@@ -3,9 +3,9 @@
 # is sung; this file, `hymn.scss` and `page.scss` say how it looks.
 # `website` rather than `default` for three things a default project does not
 # give: 848 decks share one copy of reveal.js in `site_libs`, where a default
-# project stages it per document at 5 MB each; every document is indexed into
-# `search.json`; and the theme puts a search box over that index in the navbar
-# of every page, which is the whole of the search feature here.
+# project stages it per document at 5 MB each; every deck is indexed into
+# `search.json`; and the theme puts a search box over that index in the navbar,
+# which is the whole of the search feature here.
 
 # The size of the collection: the hymnal is a printed book of 848 hymns, and
 # `index.md` takes the number from here rather than repeating it, so the one
@@ -16,8 +16,9 @@ project:
   type: website
   output-dir: _site
   render:
-    - index.md
-    - chorus.md
+    # The top-level glob includes the generated chorus report in developer
+    # mode and only index.md when HYMN_BUILD_MODE=production omits it.
+    - "*.md"
     - slide/*.md
 
 website:
@@ -31,8 +32,6 @@ website:
     left:
       - href: index.md
         text: Hymns 詩歌
-      - href: chorus.md
-        text: Chorus 和詩
     right:
       - icon: github
         href: https://github.com/ickc/selected-hymns-ng

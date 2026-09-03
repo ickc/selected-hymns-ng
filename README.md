@@ -28,10 +28,6 @@ converted back to the canonical shape and comes out unchanged.
   belongs to it, both languages, sized to fill the screen without overflowing
   it. Add `?grid` to a hymn's URL for two aligned columns instead of
   interleaved lines.
-- **[Which hymns' chorus had to be worked
-  out](https://ickc.github.io/selected-hymns-ng/chorus.html)**, and what each
-  stanza sings — the source records a chorus once, and a congregation sings it
-  again after every stanza.
 
 More products from the same data may follow.
 

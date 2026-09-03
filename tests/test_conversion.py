@@ -3,6 +3,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
 import yaml
 
@@ -11,6 +12,7 @@ from hymn_projection.converter import (
     markdown_to_yaml,
     yaml_to_markdown,
 )
+from hymn_projection.environment import BUILD_MODE_ENV
 from hymn_projection.model import Hymn
 
 
@@ -97,14 +99,75 @@ class HymnConversionTest(TestCase):
             slides = root / "site" / "slide"
             source.write_text(source_yaml, encoding="utf-8")
             yaml_to_markdown(source, markdown)
-            markdown_to_slides(markdown, slides)
+            markdown_to_slides(markdown, slides, jobs=2)
             self.assertTrue((slides / "2.md").exists())
 
             (markdown / "2.md").unlink()
-            markdown_to_slides(markdown, slides)
+            markdown_to_slides(markdown, slides, jobs=2)
 
             self.assertFalse((slides / "2.md").exists())
             self.assertTrue((slides / "1.md").exists())
+
+    def test_developer_projection_writes_the_chorus_report(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "data"
+            source.mkdir()
+            (source / "1.md").write_text(
+                Hymn.from_dict(HYMN_DATA).to_markdown(), encoding="utf-8"
+            )
+
+            with patch.dict("os.environ", {BUILD_MODE_ENV: "develop"}):
+                markdown_to_slides(source, root / "site" / "slide", jobs=1)
+
+            report = (root / "site" / "chorus.md").read_text(encoding="utf-8")
+            self.assertIn("search: false", report)
+
+    def test_production_projection_removes_the_chorus_report(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "data"
+            site = root / "site"
+            source.mkdir()
+            site.mkdir()
+            (source / "1.md").write_text(
+                Hymn.from_dict(HYMN_DATA).to_markdown(), encoding="utf-8"
+            )
+            (site / "chorus.md").write_text("stale", encoding="utf-8")
+            (site / "chorus.html").write_text("stale", encoding="utf-8")
+
+            with patch.dict("os.environ", {BUILD_MODE_ENV: "production"}):
+                markdown_to_slides(source, site / "slide", jobs=1)
+
+            self.assertFalse((site / "chorus.md").exists())
+            self.assertFalse((site / "chorus.html").exists())
+
+    def test_parallel_projection_is_byte_identical(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "data"
+            source.mkdir()
+            for number in range(1, 4):
+                (source / f"{number}.md").write_text(
+                    Hymn.from_dict(HYMN_DATA).to_markdown(), encoding="utf-8"
+                )
+
+            serial = root / "serial" / "slide"
+            parallel = root / "parallel" / "slide"
+            markdown_to_slides(source, serial, jobs=1)
+            markdown_to_slides(source, parallel, jobs=3)
+
+            serial_files = {
+                path.relative_to(serial.parent): path.read_bytes()
+                for path in serial.parent.rglob("*")
+                if path.is_file()
+            }
+            parallel_files = {
+                path.relative_to(parallel.parent): path.read_bytes()
+                for path in parallel.parent.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(parallel_files, serial_files)
 
     def test_unknown_hymn_field_is_rejected(self) -> None:
         invalid = dict(HYMN_DATA, unexpected="value")
