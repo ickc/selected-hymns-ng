@@ -16,16 +16,23 @@ platforms = ["linux-64", "osx-arm64", "osx-64"]
 [tool.pixi.pypi-dependencies]
 hymn_projection = { path = ".", editable = true }
 
+[tool.pixi.activation]
+# `quarto preview` picks its own port otherwise, which changes between runs.
+env = { QUARTO_PORT = "8020" }
+
 [tool.pixi.tasks]
-yaml-to-md = "python -m hymn_projection.converter yaml-to-markdown ../selected-hymns/data.yml data"
-md-to-yaml = "python -m hymn_projection.converter markdown-to-yaml data data.yml"
-md-to-slide = "python -m hymn_projection.converter markdown-to-slides data site/slide"
-slides = { cmd = "quarto render site", depends-on = ["md-to-slide"], description = "Regenerate and render every hymn deck" }
-check-slides = "python scripts/check_slides.py site/_site/slide"
-# The browser check_slides.py measures the rendered decks in. Quarto installs
-# it out of tree, which is why this is a task rather than a dependency.
-setup-chrome = "quarto install chrome-headless-shell --no-prompt"
-test = "python -m unittest discover -s tests -v"
+yaml-to-md = { cmd = "python -m hymn_projection.converter yaml-to-markdown ../selected-hymns/data.yml data", description = "Render the canonical YAML collection as data/N.md" }
+md-to-yaml = { cmd = "python -m hymn_projection.converter markdown-to-yaml data data.yml", description = "Rebuild the canonical YAML from data/N.md" }
+md-to-slide = { cmd = "python -m hymn_projection.converter markdown-to-slides data site/slide", description = "Project data/N.md as the slide Markdown, index and chorus report in site/" }
+build = { cmd = "quarto render site", depends-on = ["md-to-slide"], description = "Regenerate the projection and render every hymn deck into site/_site" }
+serve = { cmd = "quarto preview site --port $QUARTO_PORT --host 0.0.0.0", depends-on = ["md-to-slide"], description = "Preview the site on $QUARTO_PORT" }
+check-slides = { cmd = "python scripts/check_slides.py site/_site/slide", description = "Measure every rendered deck in a browser and fail on lyrics that overflow" }
+# The browser check-slides measures the rendered decks in. Quarto installs it
+# out of tree, which is why this is a task rather than a dependency.
+setup-chrome = { cmd = "quarto install chrome-headless-shell --no-prompt", description = "Install the headless browser check-slides needs" }
+test = { cmd = "python -m unittest discover -s tests -v", description = "Run the conversion and projection tests" }
+chorus-report = { cmd = "python scripts/chorus_report.py data", description = "List the hymns whose chorus the projection resolves, to check against the hymnal" }
+clean = { cmd = "rm -rf site/_site site/.quarto site/slide site/index.md site/chorus.md", description = "Remove everything the projection and the render generate" }
 
 [tool.pixi.dependencies]
 pandoc = ">=3.8.3,<4"
