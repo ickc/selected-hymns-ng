@@ -31,9 +31,33 @@ class HymnConversionTest(TestCase):
 
     def test_object_round_trip(self) -> None:
         hymn = Hymn.from_dict(HYMN_DATA)
+        markdown = hymn.to_markdown()
 
         self.assertEqual(hymn.to_dict(), HYMN_DATA)
-        self.assertEqual(Hymn.from_markdown(hymn.to_markdown()), hymn)
+        self.assertEqual(Hymn.from_markdown(markdown), hymn)
+        self.assertNotIn("{lang=", markdown)
+        self.assertIn("category: 分類——測試", markdown)
+        self.assertIn("meter: 8.6.8.6. with chorus和", markdown)
+        self.assertIn("| A “quoted” line—with punctuation.\n| 第一行。", markdown)
+        self.assertIn("| 第一行。\n| 　　保留全形空格。\n", markdown)
+
+    def test_latin_scalar_meter_remains_a_scalar(self) -> None:
+        hymn = Hymn.from_dict(dict(HYMN_DATA, meter="C.M."))
+
+        recovered = Hymn.from_markdown(hymn.to_markdown())
+
+        self.assertEqual(recovered.meter, "C.M.")
+
+    def test_double_meter_notation_is_shared_between_languages(self) -> None:
+        meter = {
+            "en": "7.7.7.7.D. with repeat",
+            "zh": "7.7.7.7.D. 重",
+        }
+        hymn = Hymn.from_dict(dict(HYMN_DATA, meter=meter))
+        markdown = hymn.to_markdown()
+
+        self.assertIn("meter: 7.7.7.7.D. with repeat重", markdown)
+        self.assertEqual(Hymn.from_markdown(markdown).meter.to_dict(), meter)
 
     def test_directory_round_trip_is_byte_exact(self) -> None:
         source_yaml = yaml.safe_dump([HYMN_DATA], allow_unicode=True, sort_keys=False)
