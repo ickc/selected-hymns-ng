@@ -1,0 +1,72 @@
+/* The contents page: 848 hymns in one scrollable column, so the number a
+   hymn is called for is the thing that has to be findable. */
+
+:root {
+  --ink: #1a1a1a;
+  --quiet: #777;
+  --rule: #e6e6e6;
+}
+
+body {
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  max-width: 46rem;
+  font-family: "TeX Gyre Schola", serif;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: #fff;
+}
+
+/* :lang() matches by prefix, so this reaches every zh-Hant span. */
+:lang(zh) {
+  font-family: "Noto Sans TC", "Noto Sans CJK TC", sans-serif;
+}
+
+h1.title {
+  margin: 0 0 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+
+.hymn-index a {
+  display: block;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--rule);
+  color: inherit;
+  text-decoration: none;
+}
+
+.hymn-index a:hover,
+.hymn-index a:focus {
+  background: #f6f6f6;
+}
+
+/* The number leads and stays put, so the column scans as a numbered list
+   however long the title beside it runs. */
+.hymn-index strong {
+  display: inline-block;
+  min-width: 3.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--quiet);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8e8e8;
+    --quiet: #999;
+    --rule: #333;
+  }
+
+  body {
+    background: #141414;
+  }
+
+  .hymn-index a:hover,
+  .hymn-index a:focus {
+    background: #1f1f1f;
+  }
+}

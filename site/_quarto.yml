@@ -1,0 +1,56 @@
+# Every hymn deck is rendered from the projection in `slide/`, which
+# `pixi run md-to-slide` writes and nothing here edits. The Markdown says what
+# is sung; this file and `hymn.scss` say how it looks.
+# `website` rather than `default` only so that 848 decks share one copy of
+# reveal.js in `site_libs`; a default project stages it per document, which is
+# 5 MB each.
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.md
+    - slide/*.md
+
+format:
+  # The contents page, and the only document here that is not a deck. It
+  # selects this format in its own front matter; everything else takes the
+  # project default below.
+  html:
+    theme: none
+    css: index.css
+    toc: false
+    anchor-sections: false
+    include-in-header:
+      - text: |
+          <link rel="preconnect" href="https://font.kolen.dev">
+          <link rel="preconnect" href="https://font.kolen.dev" crossorigin>
+          <link rel="stylesheet" href="https://font.kolen.dev/assets/faces.css">
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap">
+  revealjs:
+    theme: [default, hymn.scss]
+    template-partials:
+      - title-slide.html
+    # A projected hymn needs none of reveal's chrome, and a stray click on it
+    # during a service is worse than useless.
+    controls: false
+    menu: false
+    progress: false
+    slide-number: false
+    hash: true
+    # `fit.html` sizes the lyrics against this logical viewport, so it is a
+    # fixed contract rather than a preference.
+    width: 1280
+    height: 720
+    margin: 0.05
+    center: true
+    include-in-header:
+      # The font pattern from https://font.kolen.dev. `faces.css` declares the
+      # faces; Noto Sans TC is a separate origin, and a Chinese hymnal is
+      # exactly the consumer that has to ask for it.
+      - text: |
+          <link rel="preconnect" href="https://font.kolen.dev">
+          <link rel="preconnect" href="https://font.kolen.dev" crossorigin>
+          <link rel="stylesheet" href="https://font.kolen.dev/assets/faces.css">
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap">
+    include-after-body:
+      - fit.html

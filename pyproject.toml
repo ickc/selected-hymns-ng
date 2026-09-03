@@ -20,6 +20,10 @@ hymn_projection = { path = ".", editable = true }
 yaml-to-md = "python -m hymn_projection.converter yaml-to-markdown ../selected-hymns/data.yml data"
 md-to-yaml = "python -m hymn_projection.converter markdown-to-yaml data data.yml"
 md-to-slide = "python -m hymn_projection.converter markdown-to-slides data site/slide"
+slides = { cmd = "quarto render site", depends-on = ["md-to-slide"], description = "Regenerate and render every hymn deck" }
+# The browser check_slides.py measures the rendered decks in. Quarto installs
+# it out of tree, which is why this is a task rather than a dependency.
+setup-chrome = "quarto install chrome-headless-shell --no-prompt"
 test = "python -m unittest discover -s tests -v"
 
 [tool.pixi.dependencies]
