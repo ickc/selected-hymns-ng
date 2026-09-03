@@ -73,12 +73,17 @@ script detection cannot recreate information absent from the text.
 a presentation renderer rather than for the canonical YAML:
 
 ```sh
-pixi run md-to-slide   # data/N.md -> site/slide/N.md
-pixi run slides        # and render every deck with Quarto
-pixi run check-slides  # assert no rendered slide overflows
+pixi run md-to-slide    # data/N.md -> site/slide/N.md, and the pages beside it
+pixi run build          # and render every deck with Quarto
+pixi run serve          # preview on $QUARTO_PORT
+pixi run check-slides   # assert no rendered slide overflows
+pixi run chorus-report  # list the hymns whose chorus is resolved
+pixi run clean          # remove everything the two generate
 ```
 
-Nothing reads it back. `data/N.md` remains the only round trip.
+Nothing reads it back, and none of it is checked in: `data/` is the source, and
+the projection, the landing page and the chorus report are all rebuilt from it
+here and in CI. `data/N.md` remains the only round trip.
 
 ### What it resolves
 
@@ -87,8 +92,8 @@ after every stanza, and which chorus that is has to be worked out:
 
 - 502 hymns have none;
 - 314 have one `1-chorus`, repeated throughout;
-- 17 pair a chorus with each stanza;
-- 15 do neither, replacing the chorus partway through — sometimes **in one
+- 15 pair a chorus with each stanza;
+- 17 do neither, replacing the chorus partway through — sometimes **in one
   language only**, so the hymn goes on singing the English of `1-chorus` under
   a new Chinese one.
 
@@ -97,6 +102,14 @@ before its stanza. Hymn 705 states that instruction in prose
 (`第三至第六節用第二節和詩`), and the rule reproduces it without reading the
 note. No hymn in the collection places a chorus before its first stanza, so the
 resolution never comes up empty.
+
+Which hymns those 17 are is not a judgement about how the choruses are
+*written*: hymns 284 and 671 pair a chorus with every stanza and so look
+settled, but their later choruses are Chinese only, so English still falls back
+to `1-chorus`. `pixi run chorus-report` classifies by what the resolution did,
+prints every stanza of every such hymn with the chorus each language takes, and
+marks the stanzas where the two differ. `site/chorus.html` is the same list as a
+page. CI runs it with `--expect 17`, so a new one cannot arrive unnoticed.
 
 A stanza of more than four lyric lines is divided into the fewest even parts
 which fit — an eight-line stanza of a doubled meter halves at its natural
