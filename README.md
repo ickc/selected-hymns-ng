@@ -18,6 +18,11 @@ The checked-in Markdown contains no Pandoc bracketed-span syntax. Each stanza
 is a level-one heading followed by one Pandoc line block. English and Chinese
 translations are adjacent lines within that block.
 
+Text scalars in the canonical YAML are Markdown source, not literal text.  The
+projection therefore preserves inline constructs such as `*emphasis*` and
+`^[inline notes]`; the converter's temporary language spans do not escape or
+flatten that markup.
+
 ```markdown
 # 1
 

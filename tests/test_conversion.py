@@ -14,13 +14,13 @@ HYMN_DATA = {
     "author": {"en": "An Author"},
     "category": {"zh": "分類——測試"},
     "meter": {"en": "8.6.8.6. with chorus", "zh": "8.6.8.6. 和"},
-    "note": {"en": "Keep *literal* Markdown"},
+    "note": {"en": "Keep *meaningful* Markdown"},
     "stanza": {
         1: [
             {"en": "A “quoted” line—with punctuation.", "zh": "第一行。"},
             {"zh": "　　保留全形空格。"},
         ],
-        "1-chorus": [{"en": r"Literal ^[note] and \\[bracket\\]."}],
+        "1-chorus": [{"en": "A line with *emphasis* and ^[a note]."}],
     },
     "title": {"en": "A title <!-- remains literal -->"},
 }
@@ -40,6 +40,8 @@ class HymnConversionTest(TestCase):
         self.assertIn("meter: 8.6.8.6. with chorus和", markdown)
         self.assertIn("| A “quoted” line—with punctuation.\n| 第一行。", markdown)
         self.assertIn("| 第一行。\n| 　　保留全形空格。\n", markdown)
+        self.assertIn("note: Keep *meaningful* Markdown", markdown)
+        self.assertIn("| A line with *emphasis* and ^[a note].", markdown)
 
     def test_latin_scalar_meter_remains_a_scalar(self) -> None:
         hymn = Hymn.from_dict(dict(HYMN_DATA, meter="C.M."))
