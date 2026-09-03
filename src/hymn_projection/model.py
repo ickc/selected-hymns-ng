@@ -15,8 +15,11 @@ import panflute as pf
 
 # Pandoc's ``smart`` extension rewrites literal curly quotes and dashes.  The
 # checked-in projection deliberately disables bracketed spans: language spans
-# exist only inside the converter, on either side of the Lua filters.
-PANDOC_MARKDOWN = "markdown-smart+yaml_metadata_block+line_blocks-bracketed_spans"
+# exist only inside the converter, on either side of the Lua filters. Hard line
+# breaks expose physical lyric lines without line-block markers in the source.
+PANDOC_MARKDOWN = (
+    "markdown-smart+yaml_metadata_block+hard_line_breaks-line_blocks-bracketed_spans"
+)
 LANGUAGES = frozenset(("en", "zh"))
 LANGUAGE_ORDER = {"en": 0, "zh": 1}
 STANZA_NAME = re.compile(r"[1-9][0-9]*-chorus")
@@ -219,42 +222,35 @@ class LyricLine:
 
         return dict(self.translations)
 
-    def to_line_items(self) -> list[pf.LineItem]:
-        """Construct the internally tagged line-block lines for this YAML line."""
+    def to_inlines(self) -> list[pf.Inline]:
+        """Construct the internally tagged inline runs for this YAML line."""
 
         return [
-            pf.LineItem(
-                pf.Span(
-                    pf.RawInline(text, format="markdown"),
-                    attributes={"lang": language},
-                )
+            pf.Span(
+                pf.RawInline(text, format="markdown"),
+                attributes={"lang": language},
             )
             for language, text in self.translations.items()
         ]
 
     @staticmethod
-    def from_line_block(
-        block: pf.LineBlock, source_lines: Sequence[str]
+    def from_languages(
+        line_languages: Sequence[set[str]], source_lines: Sequence[str]
     ) -> list[LyricLine]:
         """Recover ordered YAML lines from one automatically tagged stanza."""
 
-        if len(block.content) != len(source_lines):
-            raise ValueError("Markdown source does not match parsed line block")
+        if len(line_languages) != len(source_lines):
+            raise ValueError("Markdown source does not match parsed lyric lines")
         lines: list[LyricLine] = []
         translations: dict[str, str] = {}
         previous_order = -1
-        for line, source in zip(block.content, source_lines, strict=True):
+        for languages, source in zip(line_languages, source_lines, strict=True):
             # Inline markup can interrupt the outer automatically inferred
             # span.  Notes are a separate flow in Pandoc, for example, so a
             # line containing ``text^[note]`` has two zh spans rather than one.
-            languages = {
-                language
-                for element in line.content
-                if (language := _language(element)) is not None
-            }
             if len(languages) != 1:
                 raise ValueError(
-                    "each line-block line must resolve to exactly one language"
+                    "each lyric line must resolve to exactly one language"
                 )
             language = languages.pop()
             language_order = LANGUAGE_ORDER.get(language, -1)
@@ -403,11 +399,15 @@ class Hymn:
         blocks: list[pf.Block] = []
         for stanza in self.stanzas:
             blocks.append(pf.Header(pf.Str(str(stanza.name)), level=1))
-            blocks.append(
-                pf.LineBlock(
-                    *(item for line in stanza.lines for item in line.to_line_items())
-                )
-            )
+            lyric_lines = [
+                inlines for line in stanza.lines for inlines in line.to_inlines()
+            ]
+            paragraph: list[pf.Inline] = []
+            for index, inlines in enumerate(lyric_lines):
+                if index:
+                    paragraph.append(pf.LineBreak())
+                paragraph.append(inlines)
+            blocks.append(pf.Para(*paragraph))
 
         metadata: dict[str, Any] = {"auto-lang": AUTO_LANG}
         if self.author is not None:
@@ -440,15 +440,15 @@ class Hymn:
             standalone=True,
             extra_args=[f"--lua-filter={STRIP_LANG_FILTER}", "--wrap=none"],
         )
-        return markdown.rstrip("\n") + "\n"
+        return _strip_auto_lang(markdown)
 
     @classmethod
     def from_markdown(cls, markdown: str) -> Hymn:
         """Parse and validate one hymn from Pandoc Markdown."""
 
-        source_lines = iter(_line_block_sources(markdown))
+        source_lines = iter(_lyric_sources(markdown))
         document = pf.convert_text(
-            markdown,
+            _inject_auto_lang(markdown),
             input_format=PANDOC_MARKDOWN,
             output_format="panflute",
             standalone=True,
@@ -513,24 +513,27 @@ class Hymn:
                 if current_name in stanza:
                     raise ValueError(f"duplicate stanza heading {current_name!r}")
                 current_lines = []
-            elif isinstance(block, pf.LineBlock) and current_name is not None:
+            elif isinstance(block, pf.Para) and current_name is not None:
                 if current_lines:
-                    raise ValueError("each stanza must contain exactly one line block")
+                    raise ValueError("each stanza must contain exactly one lyric paragraph")
+                line_languages = _paragraph_languages(block)
                 block_sources: list[str] = []
-                for _ in block.content:
+                for _ in line_languages:
                     try:
                         block_sources.append(next(source_lines))
                     except StopIteration as error:
                         raise ValueError(
-                            "Markdown source has fewer line-block lines than Pandoc parsed"
+                            "Markdown source has fewer lyric lines than Pandoc parsed"
                         ) from error
                 current_lines.extend(
                     line.to_dict()
-                    for line in LyricLine.from_line_block(block, block_sources)
+                    for line in LyricLine.from_languages(
+                        line_languages, block_sources
+                    )
                 )
             else:
                 raise ValueError(
-                    "document body must contain stanza headings and lyric line blocks"
+                    "document body must contain stanza headings and lyric paragraphs"
                 )
         if current_name is not None:
             if not current_lines:
@@ -542,7 +545,7 @@ class Hymn:
         except StopIteration:
             pass
         else:
-            raise ValueError("Markdown source has more line-block lines than Pandoc parsed")
+            raise ValueError("Markdown source has more lyric lines than Pandoc parsed")
 
         metadata["stanza"] = stanza
         if "title" in document.metadata:
@@ -552,22 +555,72 @@ class Hymn:
         return cls.from_dict(metadata)
 
 
-def _line_block_sources(markdown: str) -> list[str]:
-    """Return the Markdown source of each physical line-block line."""
+def _front_matter_end(lines: Sequence[str]) -> int:
+    """Return the index of a Markdown document's closing YAML delimiter."""
+
+    if not lines or lines[0] != "---":
+        raise ValueError("hymn Markdown must begin with a YAML metadata block")
+    for index, line in enumerate(lines[1:], start=1):
+        if line in {"---", "..."}:
+            return index
+    raise ValueError("unterminated YAML metadata block")
+
+
+def _paragraph_languages(paragraph: pf.Para) -> list[set[str]]:
+    """Return inferred languages for each physical line in a paragraph."""
+
+    result: list[set[str]] = [set()]
+
+    def visit(element: pf.Element, inherited: str | None = None) -> None:
+        if isinstance(element, pf.LineBreak):
+            result.append(set())
+            return
+        language = _language(element) or inherited
+        if language:
+            result[-1].add(language)
+        content = getattr(element, "content", None)
+        if content is not None:
+            for child in content:
+                if isinstance(child, pf.Element):
+                    visit(child, language)
+
+    for inline in paragraph.content:
+        visit(inline)
+    return result
+
+
+def _inject_auto_lang(markdown: str) -> str:
+    """Inject the collection's script map into Pandoc's Markdown input."""
 
     lines = markdown.splitlines()
-    if lines and lines[0] == "---":
-        for index, line in enumerate(lines[1:], start=1):
-            if line in {"---", "..."}:
-                lines = lines[index + 1 :]
-                break
-        else:
-            raise ValueError("unterminated YAML metadata block")
+    end = _front_matter_end(lines)
+    if any(re.match(r"^auto-lang\s*:", line) for line in lines[1:end]):
+        raise ValueError("auto-lang is injected by the reader and must not be stored")
+    lines[1:1] = ["auto-lang:", "  Han: zh", "  Latin: en"]
+    return "\n".join(lines) + "\n"
+
+
+def _strip_auto_lang(markdown: str) -> str:
+    """Strip the internal script map from Pandoc's Markdown output."""
+
+    lines = markdown.splitlines()
+    end = _front_matter_end(lines)
+    auto_lang = ["auto-lang:", "  Han: zh", "  Latin: en"]
+    for index in range(1, end - len(auto_lang) + 1):
+        if lines[index : index + len(auto_lang)] == auto_lang:
+            del lines[index : index + len(auto_lang)]
+            return "\n".join(lines) + "\n"
+    raise ValueError("Pandoc output is missing the internal auto-lang map")
+
+
+def _lyric_sources(markdown: str) -> list[str]:
+    """Return the Markdown source of each physical lyric line."""
+
+    lines = markdown.splitlines()
+    end = _front_matter_end(lines)
 
     sources: list[str] = []
-    for line in lines:
-        if line == "|":
-            sources.append("")
-        elif line.startswith("| "):
-            sources.append(line[2:])
+    for line in lines[end + 1 :]:
+        if line and not line.startswith("# "):
+            sources.append(line)
     return sources

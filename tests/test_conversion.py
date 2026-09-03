@@ -36,12 +36,13 @@ class HymnConversionTest(TestCase):
         self.assertEqual(hymn.to_dict(), HYMN_DATA)
         self.assertEqual(Hymn.from_markdown(markdown), hymn)
         self.assertNotIn("{lang=", markdown)
+        self.assertNotIn("auto-lang:", markdown)
         self.assertIn("category: 分類——測試", markdown)
         self.assertIn("meter: 8.6.8.6. with chorus和", markdown)
-        self.assertIn("| A “quoted” line—with punctuation.\n| 第一行。", markdown)
-        self.assertIn("| 第一行。\n| 　　保留全形空格。\n", markdown)
+        self.assertIn("A “quoted” line—with punctuation.\n第一行。", markdown)
+        self.assertIn("第一行。\n　　保留全形空格。\n", markdown)
         self.assertIn("note: Keep *meaningful* Markdown", markdown)
-        self.assertIn("| A line with *emphasis* and ^[a note].", markdown)
+        self.assertIn("A line with *emphasis* and ^[a note].", markdown)
 
     def test_latin_scalar_meter_remains_a_scalar(self) -> None:
         hymn = Hymn.from_dict(dict(HYMN_DATA, meter="C.M."))

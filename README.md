@@ -15,8 +15,9 @@ pixi run md-to-yaml
 ## Markdown representation
 
 The checked-in Markdown contains no Pandoc bracketed-span syntax. Each stanza
-is a level-one heading followed by one Pandoc line block. English and Chinese
-translations are adjacent lines within that block.
+is a level-one heading followed by one paragraph whose physical lines are hard
+line breaks. English and Chinese translations are adjacent lines within that
+paragraph.
 
 Text scalars in the canonical YAML are Markdown source, not literal text.  The
 projection therefore preserves inline constructs such as `*emphasis*` and
@@ -26,10 +27,10 @@ flatten that markup.
 ```markdown
 # 1
 
-| God, our Father, we adore Thee!
-| 阿爸父神，我們拜你，
-| We, Thy children, bless Thy Name!
-| 稱頌你名永無止！
+God, our Father, we adore Thee!
+阿爸父神，我們拜你，
+We, Thy children, bless Thy Name!
+稱頌你名永無止！
 ```
 
 The canonical language order is English then Chinese. After `auto-lang.lua`
@@ -44,11 +45,12 @@ category: 讚美和敬拜——聖父（祂的偉大）
 note: Repeat the last two lines重複最後兩行
 ```
 
-The projection includes an `auto-lang` map from Unicode script to the
-collection's language tags. When Markdown is read, `auto-lang.lua` restores
-temporary `lang` spans in the Pandoc tree; the Python codec uses those spans to
-rebuild the localized YAML mappings. When Markdown is written, `strip-lang.lua`
-removes the codec's temporary spans before Pandoc emits the source.
+When Markdown is read, the codec injects an `auto-lang` map from Unicode script
+to the collection's language tags, and `auto-lang.lua` restores temporary
+`lang` spans in the Pandoc tree. The Python codec uses those spans to rebuild
+the localized YAML mappings. When Markdown is written, `strip-lang.lua`
+removes the temporary spans, and the codec removes the injected map before
+returning the source.
 
 A localized meter has a shared notation followed by its language-specific
 suffixes:
