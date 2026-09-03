@@ -11,7 +11,11 @@
 // scripts/check_slides.py reads.
 (function () {
   function fit() {
-    if (location.search.indexOf('grid') >= 0) document.body.classList.add('grid');
+    // Read as a parameter, not as a substring: `?nogrid` and any tracking
+    // parameter with `grid` in its name would otherwise turn the deck into
+    // two columns in the middle of a service.
+    var query = new URLSearchParams(location.search);
+    if (query.has('grid')) document.body.classList.add('grid');
     var config = (window.Reveal && Reveal.getConfig)
       ? Reveal.getConfig()
       : {width: 1280, height: 720, margin: 0.05};
