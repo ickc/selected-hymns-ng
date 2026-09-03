@@ -53,22 +53,35 @@ $link-color: #1a1a1a;
   text-align: center;
 }
 
-// The side-by-side layout, reached with ?grid on the deck's URL. It needs no
-// change to the Markdown: each lyric line is a paragraph whose box is
-// dissolved here so its two language spans become cells of one grid.
+// The side-by-side layout, reached with ?grid on the deck's URL. Each lyric
+// line remains a row of its own; its language spans occupy fixed columns, so a
+// missing translation cannot move the next line into the wrong row or column.
 //
 // English wraps against a Chinese line that does not, so the rows drift apart
 // on long lines. That is why interleaved is the default.
 body.grid .reveal .lyrics {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: 1.2em;
-  row-gap: 0.3em;
   text-align: left;
 }
 
 body.grid .reveal .lyrics p {
-  display: contents;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 1.2em;
+}
+
+body.grid .reveal .lyrics p > :lang(en) {
+  grid-column: 1;
+}
+
+body.grid .reveal .lyrics p > :lang(zh) {
+  grid-column: 2;
+}
+
+// A wholly monolingual slide has no alignment to preserve, so use its width.
+body.grid .reveal .lyrics:not(:has(:lang(zh))) p > :lang(en),
+body.grid .reveal .lyrics:not(:has(:lang(en))) p > :lang(zh) {
+  grid-column: 1 / -1;
+  text-align: center;
 }
 
 body.grid .reveal .lyrics br {
