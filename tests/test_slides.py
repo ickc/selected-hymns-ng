@@ -247,6 +247,7 @@ class ChorusReportTest(TestCase):
         report = chorus_report_markdown([(1, hymn({1: [{"en": "Plain"}]})), (668, mixed)])
 
         self.assertEqual(chorus_sources(mixed.stanzas)[2], {"en": "1-chorus", "zh": "2-chorus"})
+        self.assertIn("search: false", report)
         self.assertIn("| [668](slide/668.html) | 2 | `1-chorus` | `2-chorus` |", report)
         self.assertIn("1 hymns have no chorus", report)
         # A hymn needing no resolution is counted and then left out of the list.

@@ -114,8 +114,11 @@ looks for.
 
 The project is a `website` rather than a `default` project for three things:
 848 decks share one copy of reveal.js in `site_libs` instead of a 5 MB copy
-each; every document is indexed into `search.json`; and the theme carries the
-navbar the search box sits in.
+each; every deck is indexed into `search.json`; and the theme carries the
+navbar the search box sits in. The generated [chorus
+report](https://ickc.github.io/selected-hymns-ng/chorus.html) is a developer
+diagnostic: it is rendered, but deliberately absent from the navbar and search
+index.
 
 ### Search
 
@@ -127,8 +130,8 @@ theme at all.
 What matters is the shape of the index: **one entry per slide**, not per hymn.
 A half-remembered line therefore finds the hymn *and* opens at the stanza that
 sings it, and the results group by hymn with the other matching stanzas behind
-"more matches in this document". The two pages are indexed too, so the chorus
-report can be found by name.
+"more matches in this document". The chorus report opts out with `search:
+false`; it is developer-only rather than part of the site's discovery surface.
 
 This is why the html format has a theme rather than `theme: none`: without one
 there is no navbar to put the box in, and Quarto finds nothing it recognizes as

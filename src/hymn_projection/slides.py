@@ -304,6 +304,10 @@ def chorus_report_markdown(entries: list[tuple[int, Hymn]]) -> str:
         "title: Chorus resolution 和詩對照",
         "lang: en",
         "format: html",
+        # This is a developer report, not part of the published site's
+        # navigation or search surface. It is still rendered so a developer
+        # can inspect the exact report produced alongside the decks.
+        "search: false",
         "---",
         "",
         "A congregation sings the chorus again after each stanza, and the source",
