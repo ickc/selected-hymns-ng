@@ -351,7 +351,7 @@ def index_markdown(entries: list[tuple[int, Hymn]]) -> str:
             '<form class="hymn-goto" id="hymn-goto" autocomplete="off">',
             '  <label for="hymn-number">Hymn 詩歌</label>',
             '  <input id="hymn-number" type="number" inputmode="numeric"',
-            f'         min="1" max="{highest}" step="1" placeholder="123"',
+            f'         min="1" max="{highest}" step="1" placeholder="1"',
             '         aria-describedby="hymn-goto-message" autofocus>',
             '  <button type="submit">Open 開啟</button>',
             '  <span id="hymn-goto-message" class="hymn-goto-message" role="alert" hidden></span>',
