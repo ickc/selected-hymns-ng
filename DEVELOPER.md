@@ -15,8 +15,8 @@ flowchart LR
   md["<b>data/N.md</b><br/>848 files, in git"]
   slide["site/slide/N.md"]
   index["site/index.md<br/>written, in git"]
-  chorus["site/chorus.md"]
-  built["site/_site/<br/>848 decks, 2 pages, search.json"]
+  chorus["site/chorus.md<br/>developer mode"]
+  built["site/_site/<br/>848 decks, landing page, search.json"]
   pages["GitHub Pages"]
 
   yaml -- "yaml-to-md" --> md
@@ -55,8 +55,10 @@ theme's business, which is how the same file renders interleaved or — with
 ### Why `chorus.md` is generated and `index.md` is not
 
 `chorus.md` *is* the resolution — which chorus each stanza of each hymn takes
-— so it is written by `md-to-slide` with the slides it describes, and cannot
-disagree with them. Writing it by hand would be transcribing the code's output.
+— so in developer mode it is written by `md-to-slide` with the slides it
+describes and cannot disagree with them. Writing it by hand would be
+transcribing the code's output. Production mode removes it and does not publish
+`chorus.html`.
 
 `index.md` is a form and a heading. The one thing on it that belongs to the
 collection is the range the number box accepts, and the collection is a printed
@@ -74,7 +76,7 @@ flowchart TD
   idx["index.md<br/>written, in git"]
 
   subgraph gen["written by md-to-slide"]
-    chr["chorus.md"]
+    chr["chorus.md<br/>developer mode"]
     dck["slide/N.md × 848"]
   end
 
@@ -102,7 +104,7 @@ also be built as a plain page over the top of itself.
 | file | kind | used by |
 |---|---|---|
 | `_quarto.yml` | project and format configuration | everything |
-| `page.scss` | Bootstrap theme layer | the two pages |
+| `page.scss` | Bootstrap theme layer | the landing page and developer report |
 | `goto.html` | `include-after-body` script | the two pages; drives the number box |
 | `hymn.scss` | reveal.js theme | every deck |
 | `title-slide.html` | Pandoc **template partial** — replaces reveal's title slide | every deck |
@@ -178,6 +180,14 @@ native serial render gives the same 6,611 IDs and record contents and the same
 files everywhere else. `search.json` itself is not byte-identical because
 Quarto's full render emits its top-level records in a different order; that
 array order is not part of the search behavior.
+
+### Build modes
+
+`HYMN_BUILD_MODE` is either `develop` (the local default) or `production`.
+Production is the published shape: `md-to-slide` removes the generated chorus
+report, so neither parallel nor serial rendering can emit `chorus.html`.
+Developer mode generates and renders the report, though it remains absent from
+navigation and search.
 
 The build detects physical rather than logical CPU cores (respecting Linux CPU
 affinity), prints the detected and selected counts, and uses every physical
@@ -256,12 +266,14 @@ pixi run check-slides
 
 ## CI
 
-`.github/workflows/ci.yml`, three jobs:
+`.github/workflows/ci.yml` defaults `HYMN_BUILD_MODE` to `production`, so the
+normal path runs the suite, renders all 848 decks, and uploads `site/_site`
+without generating the chorus report or installing a browser. A manual
+workflow dispatch can select `develop` to additionally guard the chorus list
+with `--expect 17` and measure every rendered deck in the browser. This keeps
+the expensive checks available without putting them on every push.
 
-- **test** — the suite, and the chorus report with `--expect 17`.
-- **build** — renders all 848 decks and then measures every one, then uploads
-  `site/_site` as the Pages artifact.
-- **deploy** — publishes `main` to GitHub Pages. Branches build and are checked
-  but never touch the live site.
+The deploy job publishes only production builds of `main`. Branches build but
+never touch the live site.
 
 Actions are pinned to commit SHAs; a tag can be moved to point at new code.

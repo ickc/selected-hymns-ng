@@ -8,6 +8,7 @@ from pathlib import Path
 
 import yaml
 
+from .environment import PRODUCTION, build_mode
 from .model import Hymn
 from .slides import (
     LINES_PER_SLIDE,
@@ -83,6 +84,7 @@ def markdown_to_slides(
 ) -> None:
     """Write each hymn's slide projection, and the report beside it."""
 
+    mode = build_mode()
     destination.mkdir(parents=True, exist_ok=True)
     entries: list[tuple[int, Hymn]] = []
     for path in numbered_markdown_files(source):
@@ -101,12 +103,16 @@ def markdown_to_slides(
     for stale in destination.glob("*.md"):
         if stale.name not in written:
             stale.unlink()
-    # This sits beside `slide/`, not inside it: it is a page of the site
-    # rather than a deck. It is written here, with the slides, so that what it
-    # lists cannot drift from what they sing.
-    (destination.parent / "chorus.md").write_text(
-        chorus_report_markdown(entries), encoding="utf-8"
-    )
+    # This developer report sits beside `slide/`, not inside it. Production
+    # omits both its source and anything a stopped render may have left beside
+    # that source; other modes write it with the slides so it cannot drift
+    # from what they sing.
+    report = destination.parent / "chorus.md"
+    if mode == PRODUCTION:
+        report.unlink(missing_ok=True)
+        report.with_suffix(".html").unlink(missing_ok=True)
+    else:
+        report.write_text(chorus_report_markdown(entries), encoding="utf-8")
 
 
 def main() -> None:

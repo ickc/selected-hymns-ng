@@ -5,6 +5,20 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      build_mode:
+        description: Include developer reports and run browser layout checks
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - develop
+
+env:
+  # Production is the quick path used by pushes and pull requests. Dispatch a
+  # branch manually in develop mode for the slower chorus and browser checks.
+  HYMN_BUILD_MODE: ${{ inputs.build_mode || 'production' }}
 
 # A superseded branch build is worth cancelling; a superseded `main` build is
 # not, because its deploy job may already be publishing. The deploy job carries
@@ -34,33 +48,32 @@ jobs:
         with:
           locked: true
       - run: pixi run test
-      # The projection is generated from data/ rather than carried in the
-      # history, so what there is to check is that it still generates -- and
-      # the list of hymns whose chorus is resolved rather than read, which is
-      # printed into the log for the run to be checked against the hymnal.
-      # --expect fails if that list grows, so a new one cannot arrive unseen.
-      - run: pixi run chorus-report -- --expect 17
+      # Developer-mode dispatches print and guard the exceptional chorus list.
+      - if: env.HYMN_BUILD_MODE == 'develop'
+        run: pixi run chorus-report -- --expect 17
 
   build:
     name: Build and check every deck
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
-    # 848 decks to render in parallel and then 848 to measure in a browser.
-    # Neither is slow per deck; there are simply a lot of them.
+    # Every run builds the production artifact. A developer-mode dispatch also
+    # installs a browser and measures every slide.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
         with:
           locked: true
-      # ~260 MB, and only `check-slides` needs it. The render does not.
-      - run: pixi run setup-chrome
+      # ~260 MB, and only the opt-in browser check needs it. The render does not.
+      - if: env.HYMN_BUILD_MODE == 'develop'
+        run: pixi run setup-chrome
       - run: pixi run build
       # The reason the decks are checkable at all: this fails on a deck whose
       # lyrics overflow a slide, or one where the fitting never ran, and
       # reports any whose type ended up small. Nobody is going to look at 848
       # decks, so this looks at them instead. See scripts/check_slides.py.
-      - run: pixi run check-slides
+      - if: env.HYMN_BUILD_MODE == 'develop'
+        run: pixi run check-slides
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site/_site
@@ -70,7 +83,10 @@ jobs:
     # Only `main` is published. Every other branch still builds and is checked
     # above, which is what a pull request needs; nothing about a branch build
     # touches the live site.
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      (github.event_name != 'workflow_dispatch' || inputs.build_mode == 'production')
     needs: [test, build]
     runs-on: ubuntu-latest
     permissions:

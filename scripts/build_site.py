@@ -28,6 +28,8 @@ from typing import Any, Sequence
 
 import yaml
 
+from hymn_projection.environment import DEVELOP, PRODUCTION, build_mode
+
 
 IGNORED_PROJECT_ENTRIES = {
     ".quarto",
@@ -99,9 +101,18 @@ def _partition(paths: Sequence[Path], jobs: int) -> list[list[Path]]:
     return [list(paths[index::workers]) for index in range(workers)]
 
 
-def _copy_project(source: Path, destination: Path, slides: Sequence[Path], first: bool) -> None:
+def _copy_project(
+    source: Path,
+    destination: Path,
+    slides: Sequence[Path],
+    first: bool,
+    mode: str,
+) -> None:
     def ignore(_directory: str, names: list[str]) -> set[str]:
-        return set(names) & IGNORED_PROJECT_ENTRIES
+        ignored = set(names) & IGNORED_PROJECT_ENTRIES
+        if mode == PRODUCTION:
+            ignored.add("chorus.md")
+        return ignored
 
     shutil.copytree(source, destination, ignore=ignore)
     slide_directory = destination / "slide"
@@ -113,7 +124,9 @@ def _copy_project(source: Path, destination: Path, slides: Sequence[Path], first
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     targets = ["slide/*.md"]
     if first:
-        targets[:0] = ["index.md", "chorus.md"]
+        targets.insert(0, "index.md")
+        if mode == DEVELOP:
+            targets.insert(1, "chorus.md")
     config["project"]["render"] = targets
     config_path.write_text(
         yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8"
@@ -187,6 +200,7 @@ def _merge(worker_outputs: Sequence[Path], destination: Path) -> int:
 
 def build(project: Path, jobs: int) -> None:
     project = project.resolve()
+    mode = build_mode()
     slides = sorted(
         (project / "slide").glob("*.md"),
         key=lambda path: int(path.stem),
@@ -199,6 +213,7 @@ def build(project: Path, jobs: int) -> None:
     process_count = len(partitions)
     noun = "process" if process_count == 1 else "processes"
     physical_cores = _physical_cpu_count()
+    print(f"Build mode: {mode}")
     print(f"Detected {physical_cores} physical CPU cores")
     print(f"Rendering {len(slides)} hymn decks with {process_count} Quarto {noun}")
 
@@ -207,7 +222,7 @@ def build(project: Path, jobs: int) -> None:
         workers: list[Path] = []
         for index, partition in enumerate(partitions):
             worker = temporary_path / f"worker-{index + 1}"
-            _copy_project(project, worker, partition, first=index == 0)
+            _copy_project(project, worker, partition, first=index == 0, mode=mode)
             workers.append(worker)
 
         failures: list[tuple[int, subprocess.CompletedProcess[str]]] = []
@@ -239,6 +254,9 @@ def build(project: Path, jobs: int) -> None:
         rendered = len(list((combined / "slide").glob("*.html")))
         if rendered != len(slides):
             raise RuntimeError(f"rendered {rendered} of {len(slides)} hymn decks")
+        chorus_exists = (combined / "chorus.html").exists()
+        if chorus_exists != (mode == DEVELOP):
+            raise RuntimeError(f"chorus.html does not match {mode} build mode")
 
         output = project / "_site"
         if output.exists():

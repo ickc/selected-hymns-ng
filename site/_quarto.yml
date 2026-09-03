@@ -16,8 +16,9 @@ project:
   type: website
   output-dir: _site
   render:
-    - index.md
-    - chorus.md
+    # The top-level glob includes the generated chorus report in developer
+    # mode and only index.md when HYMN_BUILD_MODE=production omits it.
+    - "*.md"
     - slide/*.md
 
 website:

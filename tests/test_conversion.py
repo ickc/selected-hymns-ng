@@ -3,6 +3,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
 import yaml
 
@@ -11,6 +12,7 @@ from hymn_projection.converter import (
     markdown_to_yaml,
     yaml_to_markdown,
 )
+from hymn_projection.environment import BUILD_MODE_ENV
 from hymn_projection.model import Hymn
 
 
@@ -105,6 +107,40 @@ class HymnConversionTest(TestCase):
 
             self.assertFalse((slides / "2.md").exists())
             self.assertTrue((slides / "1.md").exists())
+
+    def test_developer_projection_writes_the_chorus_report(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "data"
+            source.mkdir()
+            (source / "1.md").write_text(
+                Hymn.from_dict(HYMN_DATA).to_markdown(), encoding="utf-8"
+            )
+
+            with patch.dict("os.environ", {BUILD_MODE_ENV: "develop"}):
+                markdown_to_slides(source, root / "site" / "slide")
+
+            report = (root / "site" / "chorus.md").read_text(encoding="utf-8")
+            self.assertIn("search: false", report)
+
+    def test_production_projection_removes_the_chorus_report(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "data"
+            site = root / "site"
+            source.mkdir()
+            site.mkdir()
+            (source / "1.md").write_text(
+                Hymn.from_dict(HYMN_DATA).to_markdown(), encoding="utf-8"
+            )
+            (site / "chorus.md").write_text("stale", encoding="utf-8")
+            (site / "chorus.html").write_text("stale", encoding="utf-8")
+
+            with patch.dict("os.environ", {BUILD_MODE_ENV: "production"}):
+                markdown_to_slides(source, site / "slide")
+
+            self.assertFalse((site / "chorus.md").exists())
+            self.assertFalse((site / "chorus.html").exists())
 
     def test_unknown_hymn_field_is_rejected(self) -> None:
         invalid = dict(HYMN_DATA, unexpected="value")
