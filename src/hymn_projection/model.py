@@ -25,6 +25,7 @@ AUTO_LANG = {"Han": "zh", "Latin": "en"}
 FILTER_DIRECTORY = Path(__file__).with_name("filters")
 AUTO_LANG_FILTER = FILTER_DIRECTORY / "auto-lang.lua"
 STRIP_LANG_FILTER = FILTER_DIRECTORY / "strip-lang.lua"
+PRESERVE_MARKDOWN_FILTER = FILTER_DIRECTORY / "preserve-markdown.lua"
 
 
 def _mapping(value: object, description: str) -> Mapping[Any, Any]:
@@ -102,7 +103,7 @@ def _localized_metadata(value: LocalizedText) -> pf.MetaInlines:
 
     return pf.MetaInlines(
         *(
-            pf.Span(pf.Str(text), attributes={"lang": language})
+            pf.Span(pf.RawInline(text, format="markdown"), attributes={"lang": language})
             for language, text in value.translations.items()
         )
     )
@@ -135,7 +136,10 @@ def _meter_metadata(value: LocalizedText) -> pf.MetaInlines:
     return pf.MetaInlines(
         pf.Str(shared),
         *(
-            pf.Span(pf.Str(text[len(shared) :]), attributes={"lang": language})
+            pf.Span(
+                pf.RawInline(text[len(shared) :], format="markdown"),
+                attributes={"lang": language},
+            )
             for language, text in value.translations.items()
         ),
     )
@@ -219,24 +223,40 @@ class LyricLine:
         """Construct the internally tagged line-block lines for this YAML line."""
 
         return [
-            pf.LineItem(pf.Span(pf.Str(text), attributes={"lang": language}))
+            pf.LineItem(
+                pf.Span(
+                    pf.RawInline(text, format="markdown"),
+                    attributes={"lang": language},
+                )
+            )
             for language, text in self.translations.items()
         ]
 
     @staticmethod
-    def from_line_block(block: pf.LineBlock) -> list[LyricLine]:
+    def from_line_block(
+        block: pf.LineBlock, source_lines: Sequence[str]
+    ) -> list[LyricLine]:
         """Recover ordered YAML lines from one automatically tagged stanza."""
 
+        if len(block.content) != len(source_lines):
+            raise ValueError("Markdown source does not match parsed line block")
         lines: list[LyricLine] = []
         translations: dict[str, str] = {}
         previous_order = -1
-        for line in block.content:
-            if len(line.content) != 1 or not _language(line.content[0]):
+        for line, source in zip(block.content, source_lines, strict=True):
+            # Inline markup can interrupt the outer automatically inferred
+            # span.  Notes are a separate flow in Pandoc, for example, so a
+            # line containing ``text^[note]`` has two zh spans rather than one.
+            languages = {
+                language
+                for element in line.content
+                if (language := _language(element)) is not None
+            }
+            if len(languages) != 1:
                 raise ValueError(
-                    "each line-block line must resolve to exactly one language span"
+                    "each line-block line must resolve to exactly one language"
                 )
-            span = line.content[0]
-            language = _language(span)
+            language = languages.pop()
             language_order = LANGUAGE_ORDER.get(language, -1)
             if language_order < 0:
                 raise ValueError(f"unsupported lyric language {language!r}")
@@ -246,7 +266,7 @@ class LyricLine:
             if translations and language_order <= previous_order:
                 lines.append(LyricLine(translations))
                 translations = {}
-            translations[language] = pf.stringify(span)
+            translations[language] = source
             previous_order = language_order
 
         if translations:
@@ -397,7 +417,7 @@ class Hymn:
             metadata["meter"] = (
                 _meter_metadata(self.meter)
                 if isinstance(self.meter, LocalizedText)
-                else self.meter
+                else pf.MetaInlines(pf.RawInline(self.meter, format="markdown"))
             )
         if self.note is not None:
             metadata["note"] = _localized_metadata(self.note)
@@ -426,12 +446,16 @@ class Hymn:
     def from_markdown(cls, markdown: str) -> Hymn:
         """Parse and validate one hymn from Pandoc Markdown."""
 
+        source_lines = iter(_line_block_sources(markdown))
         document = pf.convert_text(
             markdown,
             input_format=PANDOC_MARKDOWN,
             output_format="panflute",
             standalone=True,
-            extra_args=[f"--lua-filter={AUTO_LANG_FILTER}"],
+            extra_args=[
+                f"--lua-filter={AUTO_LANG_FILTER}",
+                f"--lua-filter={PRESERVE_MARKDOWN_FILTER}",
+            ],
         )
         plain_metadata = document.get_metadata()
         if "stanza" in plain_metadata:
@@ -492,8 +516,17 @@ class Hymn:
             elif isinstance(block, pf.LineBlock) and current_name is not None:
                 if current_lines:
                     raise ValueError("each stanza must contain exactly one line block")
+                block_sources: list[str] = []
+                for _ in block.content:
+                    try:
+                        block_sources.append(next(source_lines))
+                    except StopIteration as error:
+                        raise ValueError(
+                            "Markdown source has fewer line-block lines than Pandoc parsed"
+                        ) from error
                 current_lines.extend(
-                    line.to_dict() for line in LyricLine.from_line_block(block)
+                    line.to_dict()
+                    for line in LyricLine.from_line_block(block, block_sources)
                 )
             else:
                 raise ValueError(
@@ -504,9 +537,37 @@ class Hymn:
                 raise ValueError(f"stanza {current_name!r} cannot be empty")
             stanza[current_name] = current_lines
 
+        try:
+            next(source_lines)
+        except StopIteration:
+            pass
+        else:
+            raise ValueError("Markdown source has more line-block lines than Pandoc parsed")
+
         metadata["stanza"] = stanza
         if "title" in document.metadata:
             metadata["title"] = _localized_from_metadata(
                 document.metadata["title"], "title"
             ).to_dict()
         return cls.from_dict(metadata)
+
+
+def _line_block_sources(markdown: str) -> list[str]:
+    """Return the Markdown source of each physical line-block line."""
+
+    lines = markdown.splitlines()
+    if lines and lines[0] == "---":
+        for index, line in enumerate(lines[1:], start=1):
+            if line in {"---", "..."}:
+                lines = lines[index + 1 :]
+                break
+        else:
+            raise ValueError("unterminated YAML metadata block")
+
+    sources: list[str] = []
+    for line in lines:
+        if line == "|":
+            sources.append("")
+        elif line.startswith("| "):
+            sources.append(line[2:])
+    return sources
