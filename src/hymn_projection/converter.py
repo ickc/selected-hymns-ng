@@ -95,6 +95,13 @@ def markdown_to_slides(
             raise ValueError(f"{path}: {error}") from error
         (destination / f"{number}.md").write_text(slides, encoding="utf-8")
         entries.append((number, hymn))
+    # A hymn that leaves `data/` must leave here too. The render globs this
+    # directory, so a deck left behind would go on being published while the
+    # index, which knows the collection's range, refused to link to it.
+    written = {f"{number}.md" for number, _ in entries}
+    for stale in destination.glob("*.md"):
+        if stale.name not in written:
+            stale.unlink()
     # These sit beside `slide/`, not inside it: they are the site's pages
     # rather than decks. The chorus report is written here, with the slides,
     # so that what it lists cannot drift from what they sing.
