@@ -1,0 +1,77 @@
+/*-- scss:defaults --*/
+
+// The two pages of this site that are not decks: the landing page, which is a
+// box to open a hymn by number, and the chorus report. Everything structural
+// -- the navbar, the search box in it, the light and dark palettes -- is the
+// theme's. This is only what the hymnal adds on top.
+
+// The same face the decks are set in, so the site reads as one thing.
+$font-family-sans-serif: "TeX Gyre Schola", serif;
+
+/*-- scss:rules --*/
+
+// :lang() matches by prefix, so this reaches every zh-Hant span, and the
+// Chinese in a mixed line without touching the English beside it.
+:lang(zh) {
+  font-family: "Noto Sans TC", "Noto Sans CJK TC", sans-serif;
+}
+
+// The box. A hymn is called for by its number, so typing the number is the
+// whole interaction; the deck opens in a new tab and this page stays put.
+.hymn-goto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 1.5rem 0 0;
+}
+
+.hymn-goto label {
+  opacity: 0.7;
+}
+
+// Colours are left to the theme: a border of the current text colour at low
+// opacity, and no background of its own, works in the light theme and the
+// dark one without either being spelled out here.
+.hymn-goto input,
+.hymn-goto button {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid rgba(128, 128, 128, 0.5);
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+.hymn-goto input {
+  width: 6rem;
+}
+
+.hymn-goto button {
+  padding-inline: 0.9rem;
+  cursor: pointer;
+}
+
+.hymn-goto button:hover,
+.hymn-goto button:focus {
+  border-color: currentColor;
+}
+
+.hymn-goto-message {
+  flex-basis: 100%;
+  color: #b00020;
+}
+
+// The chorus report is one long table of hymn, stanza and the chorus each
+// language takes: it wants to be read across, not decorated.
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+  text-align: left;
+}

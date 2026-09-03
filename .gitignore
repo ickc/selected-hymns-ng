@@ -18,5 +18,4 @@ site/site_libs/
 site/*.html
 !site/fit.html
 !site/goto.html
-!site/search.html
 !site/title-slide.html

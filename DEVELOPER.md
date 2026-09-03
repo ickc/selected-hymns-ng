@@ -80,9 +80,8 @@ flowchart TD
   end
 
   subgraph fmt_html["format: html"]
-    css["index.css"]
+    theme["theme + page.scss<br/>navbar, search box, dark switch"]
     goto["goto.html<br/>the number box"]
-    search["search.html<br/>the search box"]
   end
 
   subgraph fmt_reveal["format: revealjs"]
@@ -104,33 +103,37 @@ also be built as a plain page over the top of itself.
 | file | kind | used by |
 |---|---|---|
 | `_quarto.yml` | project and format configuration | everything |
-| `index.css` | stylesheet | the two pages |
+| `page.scss` | Bootstrap theme layer | the two pages |
 | `goto.html` | `include-after-body` script | the two pages; drives the number box |
-| `search.html` | `include-after-body` script | the two pages; drives the search box |
 | `hymn.scss` | reveal.js theme | every deck |
 | `title-slide.html` | Pandoc **template partial** — replaces reveal's title slide | every deck |
 | `fit.html` | `include-after-body` script | every deck; sizes the lyrics |
 
-Only `title-slide.html` is a template. The other three are script fragments
-appended to the body; each is inert on a page that does not carry the markup it
+Only `title-slide.html` is a template. The two `.html` scripts are fragments
+appended to the body, each inert on a page that does not carry the markup it
 looks for.
 
-The project is a `website` rather than a `default` project for two things:
+The project is a `website` rather than a `default` project for three things:
 848 decks share one copy of reveal.js in `site_libs` instead of a 5 MB copy
-each, and Quarto indexes the decks into `search.json`.
+each; every document is indexed into `search.json`; and the theme carries the
+navbar the search box sits in.
 
 ### Search
 
-`search.json` is Quarto's own index, one entry per slide of every deck.
-`search.html` fetches it the first time someone reaches for the field — it is a
-few megabytes, so not on every visit — and matches every term against the title
-and text of each entry, ranking a hymn named by the terms above one that merely
-sings them. A match resolves to the slide it was found on, so a result opens at
-the stanza the line is in.
+None of this is ours. A `website` project indexes everything it renders into
+`search.json`, and the theme puts a search box over that index in the navbar of
+every page — so the feature costs a `search:` block and the decision to have a
+theme at all.
 
-The two pages are not in the index: `theme: none` leaves Quarto nothing it
-recognizes as content to index there. Nothing is lost by it — what anyone
-searches a hymnal for is lyrics.
+What matters is the shape of the index: **one entry per slide**, not per hymn.
+A half-remembered line therefore finds the hymn *and* opens at the stanza that
+sings it, and the results group by hymn with the other matching stanzas behind
+"more matches in this document". The two pages are indexed too, so the chorus
+report can be found by name.
+
+This is why the html format has a theme rather than `theme: none`: without one
+there is no navbar to put the box in, and Quarto finds nothing it recognizes as
+content on the two pages, so neither would be in the index.
 
 ### When a render will not finish
 

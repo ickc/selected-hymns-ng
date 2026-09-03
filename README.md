@@ -21,8 +21,9 @@ converted back to the canonical shape and comes out unchanged.
 
 - **Open a hymn by its number.** A hymn is called out by number in a meeting,
   so typing the number is the whole of it; the hymn opens in a new tab.
-- **Or search for it** by a line, a title, or a phrase in either language.
-  The search reaches every slide, so a half-remembered line is enough.
+- **Or search for it** from the box in the header, by a line, a title or a
+  phrase in either language. The search reaches every slide, so a
+  half-remembered line is enough, and it opens the hymn at that stanza.
 - **Each hymn as slides to project**, one stanza at a time with the chorus that
   belongs to it, both languages, sized to fill the screen without overflowing
   it. Add `?grid` to a hymn's URL for two aligned columns instead of
