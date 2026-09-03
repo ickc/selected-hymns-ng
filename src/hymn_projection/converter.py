@@ -41,6 +41,11 @@ def numbered_markdown_files(directory: Path) -> list[Path]:
     """Return N.md files in order, rejecting non-numeric names and gaps."""
 
     files = list(directory.glob("*.md"))
+    if not files:
+        # Every caller goes on to describe the collection as a whole -- its
+        # range, its choruses -- and would otherwise fail somewhere further in,
+        # naming anything but the directory that was empty.
+        raise ValueError(f"no N.md files in {directory}")
     if any(not path.stem.isdecimal() for path in files):
         raise ValueError(f"all Markdown files in {directory} must be named N.md")
     files.sort(key=lambda path: int(path.stem))
