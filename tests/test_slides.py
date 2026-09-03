@@ -219,6 +219,22 @@ class ChorusReportTest(TestCase):
 
         self.assertEqual(chorus_shape(value), "mixed")
 
+    def test_a_chorus_written_late_leaves_the_stanzas_before_it_bare(self) -> None:
+        # One `1-chorus` and nothing else, so the written shape says "settled".
+        # It arrives after stanza 2, though, so those two stanzas sing no
+        # chorus at all -- which is the one thing this report is for.
+        value = hymn(
+            {
+                1: [{"en": "One"}],
+                2: [{"en": "Two"}],
+                "1-chorus": [{"en": "R"}],
+                3: [{"en": "Three"}],
+            }
+        )
+
+        self.assertEqual(chorus_sources(value.stanzas)[1], {})
+        self.assertEqual(chorus_shape(value), "mixed")
+
     def test_the_report_names_the_chorus_each_language_takes(self) -> None:
         mixed = hymn(
             {

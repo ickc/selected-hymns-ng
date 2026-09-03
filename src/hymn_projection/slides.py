@@ -265,7 +265,13 @@ def chorus_shape(hymn: Hymn) -> str:
     if not names:
         return "none"
     sources = chorus_sources(hymn.stanzas)
-    if names == ["1-chorus"]:
+    # Both plain shapes are claimed by what the resolution did, never by the
+    # names alone: a lone `1-chorus` written after the second stanza leaves the
+    # first two stanzas singing no chorus at all, which is a hymn to look at
+    # rather than one to count as settled.
+    if names == ["1-chorus"] and all(
+        set(sources[number].values()) == {"1-chorus"} for number in numbers
+    ):
         return "single"
     if names == [f"{number}-chorus" for number in numbers] and all(
         set(sources[number].values()) == {f"{number}-chorus"} for number in numbers
