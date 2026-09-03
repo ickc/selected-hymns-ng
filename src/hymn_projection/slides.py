@@ -364,6 +364,10 @@ def to_markdown(hymn: Hymn, number: int, limit: int = LINES_PER_SLIDE) -> str:
     """Render one hymn as the slide Markdown for a presentation writer."""
 
     metadata = [
+        # A project declaring more than one format renders every document to
+        # all of them unless the document picks one. Without this each deck is
+        # also built as a plain page, over the top of itself.
+        "format: revealjs",
         f"number: {number}",
         f"title: {_yaml_scalar(_localized_inline(title(hymn)))}",
         f"lang: {document_language(hymn)}",

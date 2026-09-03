@@ -162,6 +162,7 @@ class ProjectionTest(TestCase):
         )
         markdown = to_markdown(value, 104)
 
+        self.assertIn("format: revealjs", markdown)
         self.assertIn("number: 104", markdown)
         self.assertNotIn("meter", markdown)
         self.assertIn("note: '[A note]{lang=en}'", markdown)

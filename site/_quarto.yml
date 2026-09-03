@@ -14,8 +14,10 @@ project:
 
 format:
   # The landing page and the chorus report: the two documents here that are
-  # not decks. Each selects this format in its own front matter; everything
-  # else takes the project default below.
+  # not decks. Every document names the one of these two formats it wants in
+  # its own front matter, decks included -- a project declaring more than one
+  # renders each document to all of them otherwise, so every deck would also
+  # be built as a plain page over the top of itself.
   html:
     theme: none
     css: index.css
