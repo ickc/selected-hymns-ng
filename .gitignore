@@ -2,6 +2,6 @@
 .pixi/*
 !.pixi/config.toml
 
-# Quarto render output and cache
+# Quarto render output. Its cache is ignored by site/.gitignore,
+# which Quarto writes and maintains itself.
 site/_site/
-site/.quarto/
