@@ -24,7 +24,7 @@ env = { QUARTO_PORT = "8020" }
 yaml-to-md = { cmd = "python -m hymn_projection.converter yaml-to-markdown ../selected-hymns/data.yml data", description = "Render the canonical YAML collection as data/N.md" }
 md-to-yaml = { cmd = "python -m hymn_projection.converter markdown-to-yaml data data.yml", description = "Rebuild the canonical YAML from data/N.md" }
 md-to-slide = { cmd = "python -m hymn_projection.converter markdown-to-slides data site/slide", description = "Project data/N.md as the slide Markdown and the chorus report in site/" }
-build = { cmd = "quarto render site", depends-on = ["md-to-slide"], description = "Regenerate the projection and render every hymn deck into site/_site" }
+build = { cmd = "python scripts/build_site.py site", depends-on = ["md-to-slide"], description = "Regenerate the projection and render the hymn decks in parallel into site/_site" }
 serve = { cmd = "quarto preview site --port $QUARTO_PORT --host 0.0.0.0", depends-on = ["md-to-slide"], description = "Preview the site on $QUARTO_PORT" }
 check-slides = { cmd = "python scripts/check_slides.py site/_site/slide", description = "Measure every rendered deck in a browser and fail on lyrics that overflow" }
 # The browser check-slides measures the rendered decks in. Quarto installs it

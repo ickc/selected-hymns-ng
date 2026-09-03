@@ -23,7 +23,7 @@ flowchart LR
   md -- "md-to-yaml" --> yaml
   md -- "md-to-slide" --> slide
   md -- "md-to-slide" --> chorus
-  slide -- "build (quarto render)" --> built
+  slide -- "parallel Quarto workers" --> built
   index -- "build" --> built
   chorus -- "build" --> built
   built -- "check-slides" --> checked{{"no deck overflows"}}
@@ -137,21 +137,32 @@ This is why the html format has a theme rather than `theme: none`: without one
 there is no navbar to put the box in, and Quarto finds nothing it recognizes as
 content on the two pages, so neither would be in the index.
 
-### When a render will not finish
+### Parallel rendering
 
-A render builds each document beside its source and moves the lot into `_site`
-at the end, so two renderers over one project will move the same output twice:
+Quarto can render one file or a directory, so the decks can be divided into
+subsets. A website render also writes project-wide output, though: in
+particular, rendering one hymn replaces `search.json` with an index containing
+only that hymn. Concurrent renderers in `site/` would also race while moving
+the same `index.html` and `site_libs` into `_site`.
 
+`scripts/build_site.py` gives each Quarto process a temporary, isolated copy of
+the project containing only its subset of the generated slide Markdown. After
+all workers succeed, it combines the disjoint deck HTML, verifies shared assets
+are identical, and merges their per-slide search entries. Worker 1 also builds
+the landing page and developer-only chorus report. Nothing partial replaces
+`site/_site` until every worker and the merge have succeeded.
+
+The build defaults to the machine's CPU count, capped at eight because each
+Quarto process takes a few hundred MB. Set it explicitly when CPU or memory
+calls for a different balance:
+
+```sh
+pixi run build -- -j 4
 ```
-ERROR: NotFound: rename 'site/chorus.html' -> 'site/_site/chorus.html'
-```
 
-naming a file that had just been moved successfully. The second renderer is
-usually a `pixi run serve` preview left running in another terminal: it
-re-renders on every change, including the ones `md-to-slide` makes at the start
-of a build. Stop it and build again — `pixi run clean` clears what the failed
-render left beside its sources. CI renders once, from a fresh checkout, and
-never meets this.
+A preview is still a normal Quarto process over the source project. Stop
+`pixi run serve` before building so it does not react to `md-to-slide` while a
+build is starting.
 
 ### Fitting
 
@@ -186,7 +197,7 @@ lossless codec, `tests/test_slides.py` the slide projection.
 yaml-to-md     Render the canonical YAML collection as data/N.md
 md-to-yaml     Rebuild the canonical YAML from data/N.md
 md-to-slide    Project data/N.md as the slide Markdown and the chorus report
-build          Regenerate the projection and render every deck into site/_site
+build          Regenerate the projection and render every deck in parallel
 serve          Preview the site on $QUARTO_PORT (8020)
 check-slides   Measure every rendered deck in a browser; fail on overflow
 chorus-report  List the hymns whose chorus the projection resolves
