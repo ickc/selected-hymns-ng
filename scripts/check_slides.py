@@ -23,12 +23,32 @@ from pathlib import Path
 # Below this the words are still legible on a projector but the slide is
 # crowded. It is a review threshold, not a failure.
 SMALL_TYPE = 28.0
-CHROME = (
-    Path.home()
-    / ".local/share/quarto/chrome-headless-shell/chrome-headless-shell-linux64"
-    / "chrome-headless-shell"
+# Where `quarto install chrome-headless-shell` puts it. Quarto keeps it in the
+# platform's data directory, under a name carrying the build it downloaded --
+# `linux64` here, `mac-arm64` or `mac-x64` there -- so this looks rather than
+# spelling one of them out. All three platforms this project is built for are
+# covered without a table to keep up to date.
+DATA_DIRECTORIES = tuple(
+    Path(directory)
+    for directory in (
+        os.environ.get("XDG_DATA_HOME"),
+        Path.home() / ".local/share",
+        Path.home() / "Library/Application Support",
+    )
+    if directory
 )
+CHROME_GLOB = "chrome-headless-shell/chrome-headless-shell-*/chrome-headless-shell"
 ATTRIBUTE = re.compile(r'data-fit-(size|overflow|slides)="([0-9.]+)"')
+
+
+def installed_chrome() -> Path | None:
+    """Return the headless browser Quarto installed, if it is there."""
+
+    for directory in DATA_DIRECTORIES:
+        for path in sorted((directory / "quarto").glob(CHROME_GLOB)):
+            if path.is_file():
+                return path
+    return None
 
 
 def measure(chrome: Path, path: Path, timeout: int) -> dict[str, float]:
@@ -54,16 +74,17 @@ def measure(chrome: Path, path: Path, timeout: int) -> dict[str, float]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path, help="rendered deck directory")
-    parser.add_argument("--chrome", type=Path, default=CHROME)
+    parser.add_argument("--chrome", type=Path, default=None)
     parser.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 1))
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--small-type", type=float, default=SMALL_TYPE)
     arguments = parser.parse_args()
 
-    if not arguments.chrome.exists():
-        parser.error(
-            f"{arguments.chrome} is missing; run `quarto install chrome-headless-shell`"
-        )
+    chrome = arguments.chrome or installed_chrome()
+    if chrome is None:
+        parser.error("no headless browser; run `quarto install chrome-headless-shell`")
+    if not chrome.exists():
+        parser.error(f"{chrome} is missing")
     decks = sorted(
         arguments.directory.glob("*.html"),
         key=lambda path: (not path.stem.isdecimal(), path.stem.zfill(8)),
@@ -80,7 +101,7 @@ def main() -> int:
 
     with concurrent.futures.ThreadPoolExecutor(arguments.jobs) as pool:
         futures = {
-            pool.submit(measure, arguments.chrome, deck, arguments.timeout): deck
+            pool.submit(measure, chrome, deck, arguments.timeout): deck
             for deck in decks
         }
         for future in concurrent.futures.as_completed(futures):
