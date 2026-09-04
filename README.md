@@ -16,7 +16,7 @@ converted back to the canonical shape and comes out unchanged.
 
 ## What is published from it
 
-**<https://ickc.github.io/selected-hymns-ng/>** — the site, rebuilt from
+**<https://ickc.github.io/selected-hymns-and-songs/>** — the site, rebuilt from
 `data/` on every push to `main`:
 
 - **Open a hymn by its number.** A hymn is called out by number in a meeting,

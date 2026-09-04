@@ -34,7 +34,7 @@ website:
         text: Hymns 詩歌
     right:
       - icon: github
-        href: https://github.com/ickc/selected-hymns-ng
+        href: https://github.com/ickc/selected-hymns-and-songs
         aria-label: The data and the code on GitHub
   # A deck is a presentation, not a page of the site: it carries none of this.
   page-navigation: false
